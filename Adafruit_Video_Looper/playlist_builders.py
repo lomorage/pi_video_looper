@@ -2,12 +2,12 @@ import os
 import re
 import urllib.parse
 
-from .model import Playlist, Movie
+from .model import Playlist, MediaAsset
 
 
 def build_playlist_m3u(playlist_path: str):
     playlist_dirname = os.path.dirname(playlist_path)
-    movies = []
+    media_list = []
 
     title = None
 
@@ -22,7 +22,7 @@ def build_playlist_m3u(playlist_path: str):
                 path = urllib.parse.unquote(line.rstrip())
                 if not os.path.isabs(path):
                     path = os.path.join(playlist_dirname, path)
-                movies.append(Movie(path, title))
+                media_list.append(MediaAsset(path, title))
                 title = None
 
-    return Playlist(movies)
+    return Playlist.from_list(media_list)

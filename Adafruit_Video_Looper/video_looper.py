@@ -12,9 +12,11 @@ import time
 import pygame
 import threading
 
-from .model import Playlist, Movie
+from .model import Playlist
 from .playlist_builders import build_playlist_m3u
 
+from .baselog import getlogger
+logger = getlogger(__name__)
 
 # Basic video looper architecure:
 #
@@ -24,7 +26,7 @@ from .playlist_builders import build_playlist_m3u
 #   loading and using the VideoLooper class.
 #
 # - VideoLooper has loose coupling with file reader and video player classes that
-#   are used to find movie files and play videos respectively.  The configuration
+#   are used to find media files and play slideshow respectively.  The configuration
 #   defines which file reader and video player module will be loaded.
 #
 # - A file reader module needs to define at top level create_file_reader function
@@ -99,12 +101,12 @@ class VideoLooper:
     def _print(self, message):
         """Print message to standard output if console output is enabled."""
         if self._console_output:
-            print(message)
+            logger.info(message)
 
     def _load_player(self):
         """Load the configured video player and return an instance of it."""
         module = self._config.get('video_looper', 'video_player')
-        return importlib.import_module('.' + module, 'Adafruit_Video_Looper').create_player(self._config)
+        return importlib.import_module('.' + module, 'Adafruit_Video_Looper').create_player(self._config, self._screen)
 
     def _load_file_reader(self):
         """Load the configured file reader and return an instance of it."""
@@ -166,33 +168,22 @@ class VideoLooper:
                     return self._build_playlist_from_all_files()
                     #raise RuntimeError('Unrecognized playlist format {0}.'.format(extension))
             else:
+                # no playlist path
                 return self._build_playlist_from_all_files()
         else:
+            # no playlist file
             return self._build_playlist_from_all_files()
 
     def _build_playlist_from_all_files(self):
-        """Search all the file reader paths for movie files with the provided
+        """Search all the file reader paths for media files with the provided
         extensions.
         """
         # Get list of paths to search from the file reader.
         paths = self._reader.search_paths()
-        # Enumerate all movie files inside those paths.
-        movies = []
         for path in paths:
             # Skip paths that don't exist or are files.
             if not os.path.exists(path) or not os.path.isdir(path):
                 continue
-
-            for x in os.listdir(path):
-                # Ignore hidden files (useful when file loaded on usb key from an OSX computer
-                if x[0] is not '.' and re.search('\.{0}$'.format(self._extensions), x, flags=re.IGNORECASE):
-                    repeatsetting = re.search('_repeat_([0-9]*)x', x, flags=re.IGNORECASE)
-                    if (repeatsetting is not None):
-                        repeat = repeatsetting.group(1)
-                    else:
-                        repeat = 1
-                    basename, extension = os.path.splitext(x)
-                    movies.append(Movie('{0}/{1}'.format(path.rstrip('/'), x), basename, repeat))
 
             # Get the video volume from the file in the usb key
             sound_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._sound_vol_file)
@@ -201,8 +192,9 @@ class VideoLooper:
                     sound_vol_string = sound_file.readline()
                     if self._is_number(sound_vol_string):
                         self._sound_vol = int(float(sound_vol_string))
-        # Create a playlist with the sorted list of movies.
-        return Playlist(sorted(movies))
+
+        # Create a playlist with the sorted list of media assets.
+        return Playlist.from_paths(paths, self._extensions)
 
     def _blank_screen(self):
         """Render a blank screen filled with the background color."""
@@ -222,17 +214,17 @@ class VideoLooper:
         return font.render(message, True, self._fgcolor, self._bgcolor)
 
     def _animate_countdown(self, playlist):
-        """Print text with the number of loaded movies and a quick countdown
+        """Print text with the number of loaded media assets and a quick countdown
         message if the on screen display is enabled.
         """
-        # Print message to console with number of movies in playlist.
-        message = 'Found {0} movie{1}.'.format(playlist.length(), 
+        # Print message to console with number of media assets in playlist.
+        message = 'Found {0} asset{1}.'.format(playlist.length(), 
             's' if playlist.length() >= 2 else '')
         self._print(message)
         # Do nothing else if the OSD is turned off.
         if not self._osd:
             return
-        # Draw message with number of movies loaded and animate countdown.
+        # Draw message with number of assets loaded and animate countdown.
         # First render text that doesn't change and get static dimensions.
         label1 = self._render_text(message + ' Starting playback in:')
         l1w, l1h = label1.get_size()
@@ -286,8 +278,8 @@ class VideoLooper:
 
     def _prepare_to_run_playlist(self, playlist):
         """Display messages when a new playlist is loaded."""
-        # If there are movies to play show a countdown first (if OSD enabled),
-        # or if no movies are available show the idle message.
+        # If there are media assets to play show a countdown first (if OSD enabled),
+        # or if no media assets are available show the idle message.
         self._blank_screen()
         self._firstStart = True
         if playlist.length() > 0:
@@ -319,24 +311,25 @@ class VideoLooper:
 
     def run(self):
         """Main program loop.  Will never return!"""
-        # Get playlist of movies to play from file reader.
+        # Get playlist of media assets to play from file reader.
         playlist = self._build_playlist()
         self._prepare_to_run_playlist(playlist)
-        movie = playlist.get_next(self._is_random)
+        asset = playlist.get_next(self._is_random)
         # Main loop to play videos in the playlist and listen for file changes.
         while self._running:
-            # Load and play a new movie if nothing is playing.
+            #self._blank_screen()
+            # Load and play a new asset if nothing is playing.
             if not self._player.is_playing() and not self._playbackStopped:
-                if movie is not None: #just to avoid errors
+                if asset is not None: #just to avoid errors
 
-                    if movie.playcount >= movie.repeats:
-                        movie.clear_playcount()
-                        movie = playlist.get_next(self._is_random)
-                    elif self._player.can_loop_count() and movie.playcount > 0:
-                        movie.clear_playcount()
-                        movie = playlist.get_next(self._is_random)
+                    if asset.playcount >= asset.repeats:
+                        asset.clear_playcount()
+                        asset = playlist.get_next(self._is_random)
+                    elif self._player.can_loop_count() and asset.playcount > 0:
+                        asset.clear_playcount()
+                        asset = playlist.get_next(self._is_random)
 
-                    movie.was_played()
+                    asset.was_played()
 
                     if self._wait_time > 0 and not self._firstStart:
                         self._print('Waiting for: {0} seconds'.format(self._wait_time))
@@ -345,16 +338,16 @@ class VideoLooper:
 
                     #generating infotext
                     if self._player.can_loop_count():
-                        infotext = '{0} time{1} (player counts loops)'.format(movie.repeats, "s" if movie.repeats>1 else "")
+                        infotext = '{0} time{1} (player counts loops)'.format(asset.repeats, "s" if asset.repeats>1 else "")
                     else:
-                        infotext = '{0}/{1}'.format(movie.playcount, movie.repeats)
+                        infotext = '{0}/{1}'.format(asset.playcount, asset.repeats)
                     if playlist.length()==1:
                         infotext = '(endless loop)'
 
-                    # Start playing the first available movie.
-                    self._print('Playing movie: {0} {1}'.format(movie, infotext))
+                    # Start playing the first available asset.
+                    self._print('Playing asset: {0} {1}'.format(asset, infotext))
                     # todo: maybe clear screen to black so that background (image/color) is not visible for videos with a resolution that is < screen resolution
-                    self._player.play(movie, loop=-1 if playlist.length()==1 else None, vol = self._sound_vol)
+                    self._player.play(asset, loop=-1 if playlist.length()==1 else None, vol = self._sound_vol)
 
             # Check for changes in the file search path (like USB drives added)
             # and rebuild the playlist.
@@ -366,7 +359,7 @@ class VideoLooper:
                 # Rebuild playlist and show countdown again (if OSD enabled).
                 playlist = self._build_playlist()
                 self._prepare_to_run_playlist(playlist)
-                movie = playlist.get_next(self._is_random)
+                asset = playlist.get_next(self._is_random)
 
             # Give the CPU some time to do other tasks.
             time.sleep(0.002)

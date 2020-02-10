@@ -1,22 +1,25 @@
-# Copyright 2015 Adafruit Industries.
-# Author: Tony DiCola
 # License: GNU GPLv2, see LICENSE.txt
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 import time
+import pygame
 
+from .baselog import getlogger
+logger = getlogger(__name__)
 
-class OMXPlayer:
+class LomoPlayer:
 
-    def __init__(self, config):
+    def __init__(self, config, screen):
         """Create an instance of a video player that runs omxplayer in the
-        background.
+        background for video and load images using sdl.
         """
         self._process = None
         self._temp_directory = None
         self._load_config(config)
+        self._screen = screen
 
     def __del__(self):
         if self._temp_directory:
@@ -28,7 +31,10 @@ class OMXPlayer:
         return self._temp_directory
 
     def _load_config(self, config):
-        self._extensions = config.get('omxplayer', 'extensions') \
+        self._video_extensions = config.get('omxplayer', 'extensions') \
+                                 .translate(str.maketrans('', '', ' \t\r\n.')) \
+                                 .split(',')
+        self._image_extensions = config.get('sdl_image', 'extensions') \
                                  .translate(str.maketrans('', '', ' \t\r\n.')) \
                                  .split(',')
         self._extra_args = config.get('omxplayer', 'extra_args').split()
@@ -43,13 +49,69 @@ class OMXPlayer:
                 self._subtitle_header = '00:00:00,00 --> {:d}:{:02d}:{:02d},00\n'.format(h, m, s)
             else:
                 self._subtitle_header = '00:00:00,00 --> 99:59:59,00\n'
+        self.background = (0, 0, 0)
+        self.interval_sec = 20
 
     def supported_extensions(self):
         """Return list of supported file extensions."""
-        return self._extensions
+        return self._video_extensions + self._image_extensions
 
-    def play(self, movie, loop=None, vol=0):
+    def play(self, asset, loop=None, vol=0):
+        is_media_type = lambda filename, ext: re.search('\.{0}$'.format('|'.join(ext)), filename, flags=re.IGNORECASE) is not None
+        if is_media_type(asset.filename, self._image_extensions):
+            self.play_image(asset, loop, vol)
+        elif is_media_type(asset.filename, self._video_extensions):
+            self.play_video(asset, loop, vol)
+        else:
+            logger.warn('not support, skip %s' % asset)
+
+    def scaleImage(self, img, imageSize):
+        (bx,by) = imageSize
+        ix,iy = img.get_size()
+        if ix > iy:
+            scale_factor = bx/float(ix)
+            sy = scale_factor * iy
+            if sy > by:
+                scale_factor = by/float(iy)
+                sx = scale_factor * ix
+                sy = by
+            else:
+                sx = bx
+        else:
+            scale_factor = by/float(iy)
+            sx = scale_factor * ix
+            if sx > bx:
+                scale_factor = bx/float(ix)
+                sx = bx
+                sy = scale_factor * iy
+            else:
+                sy = by
+    
+        return pygame.transform.scale(img, (int(sx),int(sy)))
+
+    def fade(self, image, direction):
+        X, Y = self._screen.get_size()
+        for i in direction:
+            image.set_alpha(i)
+            self._screen.fill(self.background)
+            self._screen.blit(image,  ( (0.5 * X) - (0.5 * image.get_width() ), (0.5 * Y) - (0.5 * image.get_height() ) ))
+            pygame.display.flip()
+
+    def play_image(self, image, loop, vol):
+        logger.info('play image %s' % image)
+        try:
+            fullimg = pygame.image.load(image.filename)
+            self.stop(3)  # Up to 3 second delay to let the old player stop.
+            img = self.scaleImage(fullimg.convert(), self._screen.get_size())
+            self.fade(img, range(50,255,3))
+            pygame.time.delay(int(self.interval_sec) * 1000)
+            self.fade(img, range(255,50,-3))
+        except:
+            logger.error('erro loading image %s' % image)
+
+    def play_video(self, movie, loop, vol):
         """Play the provided movie file, optionally looping it repeatedly."""
+        logger.info('play video %s' % movie)
         self.stop(3)  # Up to 3 second delay to let the old player stop.
         # Assemble list of arguments.
         args = ['omxplayer']
@@ -104,6 +166,7 @@ class OMXPlayer:
         return False
 
 
-def create_player(config, screen=None):
-    """Create new video player based on omxplayer."""
-    return OMXPlayer(config)
+def create_player(config, screen):
+    """Create new media player for slideshow."""
+    return LomoPlayer(config, screen)
+
