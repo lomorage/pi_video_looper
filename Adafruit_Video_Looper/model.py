@@ -2,6 +2,7 @@
 # Author: Tony DiCola
 # License: GNU GPLv2, see LICENSE.txt
 import random
+import time
 import os
 import re
 import itertools
@@ -9,6 +10,15 @@ from typing import Optional
 
 from .baselog import getlogger
 logger = getlogger(__name__)
+
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        logger.info('%r  %2.2f ms' % (method.__name__, (te - ts) * 1000))
+        return result
+    return timed
 
 class MediaAsset:
     """Representation of a media asset, either image or video"""
@@ -42,6 +52,15 @@ class MediaAsset:
     def __repr__(self):
         return repr((self.filename, self.title, self.repeats))
 
+def getMediaAsset(filepath):
+    filename = os.path.basename(filepath)
+    repeatsetting = re.search('_repeat_([0-9]*)x', filename, flags=re.IGNORECASE)
+    if (repeatsetting is not None):
+        repeat = repeatsetting.group(1)
+    else:
+        repeat = 1
+    basename, extension = os.path.splitext(filename)
+    return MediaAsset(filepath, basename, repeat)
 
 def fileSystemMediaIter(media_paths, extensions):
     for mpath in media_paths:
@@ -54,14 +73,8 @@ def fileSystemMediaIter(media_paths, extensions):
                 filepath = os.path.join(subdir, f)
                 filename = os.path.basename(filepath)
                 if filename[0] is not '.' and re.search('\.{0}$'.format(extensions), filename, flags=re.IGNORECASE):
-                    logger.debug('found %s' % filepath)
-                    repeatsetting = re.search('_repeat_([0-9]*)x', filename, flags=re.IGNORECASE)
-                    if (repeatsetting is not None):
-                        repeat = repeatsetting.group(1)
-                    else:
-                        repeat = 1
-                    basename, extension = os.path.splitext(filename)
-                    yield MediaAsset(filepath, basename, repeat)
+                    #logger.debug('found %s' % filepath)
+                    yield getMediaAsset(filepath)
 
 def mediaListIter(media_list):
     for ml in media_list:
@@ -69,6 +82,8 @@ def mediaListIter(media_list):
 
 class Playlist:
     """Representation of a playlist of movies."""
+
+    CACHE_FILE = '/tmp/lomo-playlist.txt'
 
     @classmethod
     def from_paths(cls, media_paths, extensions):
@@ -81,7 +96,15 @@ class Playlist:
     def __init__(self, assets_iter):
         """Create a playlist from the provided list of media assets iterator."""
         self._assets_iter, self._backup_iter = itertools.tee(assets_iter)
-        self._length = len(list(self._assets_iter))
+        self._scan()
+
+    @timeit
+    def _scan(self):
+        self._length = 0
+        with open(self.CACHE_FILE, 'w') as f:
+            for item in self._assets_iter:
+                self._length += 1
+                f.write('%s\n' % item.filename)
 
     def _get_next(self) -> MediaAsset:
         asset = next(self._assets_iter, None)
@@ -91,6 +114,20 @@ class Playlist:
             asset = next(self._assets_iter, None)
         return asset
 
+    def _get_random(self) -> MediaAsset:
+        # see http://metadatascience.com/2014/02/27/random-sampling-from-very-large-files/
+        with open(self.CACHE_FILE, 'r') as f:
+            f.seek(0, 2)
+            filesize = f.tell()
+            pos = random.randint(0, filesize)
+            f.seek(pos)
+            f.readline() # skip current line
+            if f.tell() == filesize:
+                # already last line, rewind
+                f.seek(0)
+            filepath = f.readline().rstrip()
+            return getMediaAsset(filepath)
+
     def get_next(self, is_random) -> MediaAsset:
         """Get the next asset in the playlist. Will loop to start of playlist
         after reaching end.
@@ -98,13 +135,7 @@ class Playlist:
         if not is_random:
             return self._get_next()
         else:
-            asset = self._get_next()
-            # Reservoir Sampling, https://www.geeksforgeeks.org/reservoir-sampling/
-            # https://stackoverflow.com/questions/6411811/randomly-selecting-a-file-from-a-tree-of-directories-in-a-completely-fair-manner
-            for n, x in enumerate(self._assets_iter, 1):
-                if random.randrange(n) == 0:
-                    asset = x
-            return asset
+            return self._get_random()
 
     def length(self):
         """Return the number of movies in the playlist."""
@@ -114,3 +145,11 @@ if __name__ == '__main__':
     l = Playlist.from_paths('.', 'py')
     for i in range(l.length()):
         print(l.get_next(False).filename)
+
+    l = Playlist.from_list([getMediaAsset('file1')])
+    print(l.get_next(True))
+
+    l = Playlist.from_list([getMediaAsset(r) for r in ['file1', 'file2']])
+    print(l.get_next(True))
+    print(l.get_next(True))
+    print(l.get_next(True))
