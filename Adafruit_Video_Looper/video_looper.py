@@ -55,6 +55,7 @@ class VideoLooper:
         # Load other configuration values.
         self._osd = self._config.getboolean('video_looper', 'osd')
         self._is_random = self._config.getboolean('video_looper', 'is_random')
+        self._from_playlist_cache = self._config.getboolean('video_looper', 'from_playlist_cache')
         self._keyboard_control = self._config.getboolean('video_looper', 'keyboard_control')
         # Get seconds for countdown from config
         self._countdown_time = self._config.getint('video_looper', 'countdown_time')
@@ -178,23 +179,26 @@ class VideoLooper:
         """Search all the file reader paths for media files with the provided
         extensions.
         """
-        # Get list of paths to search from the file reader.
-        paths = self._reader.search_paths()
-        for path in paths:
-            # Skip paths that don't exist or are files.
-            if not os.path.exists(path) or not os.path.isdir(path):
-                continue
+        if self._from_playlist_cache:
+            return Playlist.from_cache()
+        else:
+            # Get list of paths to search from the file reader.
+            paths = self._reader.search_paths()
+            for path in paths:
+                # Skip paths that don't exist or are files.
+                if not os.path.exists(path) or not os.path.isdir(path):
+                    continue
 
-            # Get the video volume from the file in the usb key
-            sound_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._sound_vol_file)
-            if os.path.exists(sound_vol_file_path):
-                with open(sound_vol_file_path, 'r') as sound_file:
-                    sound_vol_string = sound_file.readline()
-                    if self._is_number(sound_vol_string):
-                        self._sound_vol = int(float(sound_vol_string))
+                # Get the video volume from the file in the usb key
+                sound_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._sound_vol_file)
+                if os.path.exists(sound_vol_file_path):
+                    with open(sound_vol_file_path, 'r') as sound_file:
+                        sound_vol_string = sound_file.readline()
+                        if self._is_number(sound_vol_string):
+                            self._sound_vol = int(float(sound_vol_string))
 
-        # Create a playlist with the sorted list of media assets.
-        return Playlist.from_paths(paths, self._extensions)
+            # Create a playlist with the sorted list of media assets.
+            return Playlist.from_paths(paths, self._extensions)
 
     def _blank_screen(self):
         """Render a blank screen filled with the background color."""

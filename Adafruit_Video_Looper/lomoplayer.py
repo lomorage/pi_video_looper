@@ -37,6 +37,9 @@ class LomoPlayer:
         self._image_extensions = config.get('sdl_image', 'extensions') \
                                  .translate(str.maketrans('', '', ' \t\r\n.')) \
                                  .split(',')
+        self.alpha_max = config.getint('sdl_image', 'alpha_max')
+        self.alpha_min = config.getint('sdl_image', 'alpha_min')
+        self.interval_sec = config.getint('sdl_image', 'interval_sec')
         self._extra_args = config.get('omxplayer', 'extra_args').split()
         self._sound = config.get('omxplayer', 'sound').lower()
         assert self._sound in ('hdmi', 'local', 'both'), 'Unknown omxplayer sound configuration value: {0} Expected hdmi, local, or both.'.format(self._sound)
@@ -50,7 +53,6 @@ class LomoPlayer:
             else:
                 self._subtitle_header = '00:00:00,00 --> 99:59:59,00\n'
         self.background = (0, 0, 0)
-        self.interval_sec = 20
 
     def supported_extensions(self):
         """Return list of supported file extensions."""
@@ -103,9 +105,9 @@ class LomoPlayer:
             fullimg = pygame.image.load(image.filename)
             self.stop(3)  # Up to 3 second delay to let the old player stop.
             img = self.scaleImage(fullimg.convert(), self._screen.get_size())
-            self.fade(img, range(50,255,3))
+            self.fade(img, range(self.alpha_min, self.alpha_max, 3))
             pygame.time.delay(int(self.interval_sec) * 1000)
-            self.fade(img, range(255,50,-3))
+            self.fade(img, range(self.alpha_max, self.alpha_min, -3))
         except:
             logger.error('erro loading image %s' % image)
 
