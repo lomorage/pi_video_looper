@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import time
 import pygame
+from multiprocessing import Process
 
 from .baselog import getlogger
 logger = getlogger(__name__)
@@ -16,7 +17,8 @@ class LomoPlayer:
         """Create an instance of a video player that runs omxplayer in the
         background for video and load images using sdl.
         """
-        self._process = None
+        self._vprocess = None
+        self._iprocess = None
         self._temp_directory = None
         self._load_config(config)
         self._screen = screen
@@ -100,16 +102,19 @@ class LomoPlayer:
             pygame.display.flip()
 
     def play_image(self, image, loop, vol):
+        self._iprocess = Process(target=self._play_image, args=(image,))
+        self._iprocess.start()
+
+    def _play_image(self, image):
         logger.info('play image %s' % image)
         try:
             fullimg = pygame.image.load(image.filename)
-            self.stop(3)  # Up to 3 second delay to let the old player stop.
             img = self.scaleImage(fullimg.convert(), self._screen.get_size())
             self.fade(img, range(self.alpha_min, self.alpha_max, 3))
             pygame.time.delay(int(self.interval_sec) * 1000)
             self.fade(img, range(self.alpha_max, self.alpha_min, -3))
-        except:
-            logger.error('erro loading image %s' % image)
+        except Exception as e:
+            logger.error('error loading image %s: %s' % (image, e))
 
     def play_video(self, movie, loop, vol):
         """Play the provided movie file, optionally looping it repeatedly."""
@@ -133,35 +138,49 @@ class LomoPlayer:
             args.extend(['--subtitles', srt_path])
         args.append(movie.filename)       # Add movie file path.
         # Run omxplayer process and direct standard output to /dev/null.
-        self._process = subprocess.Popen(args,
+        self._vprocess = subprocess.Popen(args,
                                          stdout=open(os.devnull, 'wb'),
                                          close_fds=True)
 
     def is_playing(self):
-        """Return true if the video player is running, false otherwise."""
-        if self._process is None:
-            return False
-        self._process.poll()
-        return self._process.returncode is None
+        """Return true if the video/image player is running, false otherwise."""
+        if self._vprocess is None:
+            vplaying = False
+        else:
+            self._vprocess.poll()
+            vplaying = self._vprocess.returncode is None
+
+        if self._iprocess is None:
+            iplaying = False
+        else:
+            iplaying = self._iprocess.is_alive()
+
+        return vplaying or iplaying
 
     def stop(self, block_timeout_sec=0):
         """Stop the video player.  block_timeout_sec is how many seconds to
         block waiting for the player to stop before moving on.
         """
-        # Stop the player if it's running.
-        if self._process is not None and self._process.returncode is None:
+        # Stop the process if it's running.
+        if self._iprocess is not None and self._iprocess.is_alive():
+            self._iprocess.kill()
+
+        if self._vprocess is not None and self._vprocess.returncode is None:
             # There are a couple processes used by omxplayer, so kill both
             # with a pkill command.
             subprocess.call(['pkill', '-9', 'omxplayer'])
+
         # If a blocking timeout was specified, wait up to that amount of time
         # for the process to stop.
         start = time.time()
-        while self._process is not None and self._process.returncode is None:
+        while self._vprocess is not None and self._vprocess.returncode is None:
             if (time.time() - start) >= block_timeout_sec:
                 break
             time.sleep(0)
+
         # Let the process be garbage collected.
-        self._process = None
+        self._vprocess = None
+        self._iprocess = None
 
     @staticmethod
     def can_loop_count():
