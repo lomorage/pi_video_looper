@@ -8,6 +8,7 @@ import time
 import pygame
 from multiprocessing import Process
 
+from .utils import timeit, load_image_fit_screen, is_media_type
 from .baselog import getlogger
 logger = getlogger(__name__)
 
@@ -20,8 +21,8 @@ class LomoPlayer:
         self._vprocess = None
         self._iprocess = None
         self._temp_directory = None
-        self._load_config(config)
         self._screen = screen
+        self._load_config(config)
 
     def __del__(self):
         if self._temp_directory:
@@ -39,9 +40,13 @@ class LomoPlayer:
         self._image_extensions = config.get('sdl_image', 'extensions') \
                                  .translate(str.maketrans('', '', ' \t\r\n.')) \
                                  .split(',')
-        self.alpha_max = config.getint('sdl_image', 'alpha_max')
-        self.alpha_min = config.getint('sdl_image', 'alpha_min')
-        self.interval_sec = config.getint('sdl_image', 'interval_sec')
+        self._alpha_max = config.getint('sdl_image', 'alpha_max')
+        self._alpha_min = config.getint('sdl_image', 'alpha_min')
+        self._interval_sec = config.getint('sdl_image', 'interval_sec')
+        self._bgcolor = list(map(int, config.get('video_looper', 'bgcolor')
+                                             .translate(str.maketrans('','', ','))
+                                             .split()))
+        self._preload = (config.getint('video_looper', 'preload') > 0)
         self._extra_args = config.get('omxplayer', 'extra_args').split()
         self._sound = config.get('omxplayer', 'sound').lower()
         assert self._sound in ('hdmi', 'local', 'both'), 'Unknown omxplayer sound configuration value: {0} Expected hdmi, local, or both.'.format(self._sound)
@@ -54,14 +59,12 @@ class LomoPlayer:
                 self._subtitle_header = '00:00:00,00 --> {:d}:{:02d}:{:02d},00\n'.format(h, m, s)
             else:
                 self._subtitle_header = '00:00:00,00 --> 99:59:59,00\n'
-        self.background = (0, 0, 0)
 
     def supported_extensions(self):
         """Return list of supported file extensions."""
         return self._video_extensions + self._image_extensions
 
     def play(self, asset, loop=None, vol=0):
-        is_media_type = lambda filename, ext: re.search('\.{0}$'.format('|'.join(ext)), filename, flags=re.IGNORECASE) is not None
         if is_media_type(asset.filename, self._image_extensions):
             self.play_image(asset, loop, vol)
         elif is_media_type(asset.filename, self._video_extensions):
@@ -69,35 +72,11 @@ class LomoPlayer:
         else:
             logger.warn('not support, skip %s' % asset)
 
-    def scaleImage(self, img, imageSize):
-        (bx,by) = imageSize
-        ix,iy = img.get_size()
-        if ix > iy:
-            scale_factor = bx/float(ix)
-            sy = scale_factor * iy
-            if sy > by:
-                scale_factor = by/float(iy)
-                sx = scale_factor * ix
-                sy = by
-            else:
-                sx = bx
-        else:
-            scale_factor = by/float(iy)
-            sx = scale_factor * ix
-            if sx > bx:
-                scale_factor = bx/float(ix)
-                sx = bx
-                sy = scale_factor * iy
-            else:
-                sy = by
-    
-        return pygame.transform.scale(img, (int(sx),int(sy)))
-
     def fade(self, image, direction):
         X, Y = self._screen.get_size()
         for i in direction:
             image.set_alpha(i)
-            self._screen.fill(self.background)
+            self._screen.fill(self._bgcolor)
             self._screen.blit(image,  ( (0.5 * X) - (0.5 * image.get_width() ), (0.5 * Y) - (0.5 * image.get_height() ) ))
             pygame.display.flip()
 
@@ -108,11 +87,14 @@ class LomoPlayer:
     def _play_image(self, image):
         logger.info('play image %s' % image)
         try:
-            fullimg = pygame.image.load(image.filename)
-            img = self.scaleImage(fullimg.convert(), self._screen.get_size())
-            self.fade(img, range(self.alpha_min, self.alpha_max, 3))
-            pygame.time.delay(int(self.interval_sec) * 1000)
-            self.fade(img, range(self.alpha_max, self.alpha_min, -3))
+            if self._preload:
+                img = image.preload_resource
+            else:
+                img = load_image_fit_screen(image.filename)
+
+            self.fade(img, range(self._alpha_min, self._alpha_max, 3))
+            pygame.time.delay(int(self._interval_sec) * 1000)
+            self.fade(img, range(self._alpha_max, self._alpha_min, -3))
         except Exception as e:
             logger.error('error loading image %s: %s' % (image, e))
 

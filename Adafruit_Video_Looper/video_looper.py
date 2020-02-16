@@ -12,7 +12,7 @@ import time
 import pygame
 import threading
 
-from .model import Playlist
+from .model import Playlist, ResourceLoader
 from .playlist_builders import build_playlist_m3u
 
 from .baselog import getlogger
@@ -92,6 +92,9 @@ class VideoLooper:
         self._playbackStopped = False
         #used for not waiting the first time
         self._firstStart = True
+
+        self._preload = (self._config.getint('video_looper', 'preload') > 0)
+        self._preloader = None
 
         # start keyboard handler thread:
         # Event handling for key press, if keyboard control is enabled
@@ -312,11 +315,14 @@ class VideoLooper:
                             self._playbackStopped = True
                             self._player.stop(3)
 
-
     def run(self):
         """Main program loop.  Will never return!"""
         # Get playlist of media assets to play from file reader.
-        playlist = self._build_playlist()
+        if self._preload:
+            self._preloader = ResourceLoader(self._build_playlist(), self._config)
+            playlist = self._preloader
+        else:
+            playlist = self._build_playlist()
         self._prepare_to_run_playlist(playlist)
         asset = playlist.get_next(self._is_random)
         # Main loop to play videos in the playlist and listen for file changes.
@@ -333,25 +339,31 @@ class VideoLooper:
                         asset.clear_playcount()
                         asset = playlist.get_next(self._is_random)
 
-                    asset.was_played()
-
-                    if self._wait_time > 0 and not self._firstStart:
-                        self._print('Waiting for: {0} seconds'.format(self._wait_time))
-                        time.sleep(self._wait_time)
-                    self._firstStart = False
-
-                    #generating infotext
-                    if self._player.can_loop_count():
-                        infotext = '{0} time{1} (player counts loops)'.format(asset.repeats, "s" if asset.repeats>1 else "")
+                    if self._preloader is None:
+                        ready = True
                     else:
-                        infotext = '{0}/{1}'.format(asset.playcount, asset.repeats)
-                    if playlist.length()==1:
-                        infotext = '(endless loop)'
+                        ready = self._preloader.is_loaded(asset)
 
-                    # Start playing the first available asset.
-                    self._print('Playing asset: {0} {1}'.format(asset, infotext))
-                    # todo: maybe clear screen to black so that background (image/color) is not visible for videos with a resolution that is < screen resolution
-                    self._player.play(asset, loop=-1 if playlist.length()==1 else None, vol = self._sound_vol)
+                    if ready:
+                        asset.was_played()
+
+                        if self._wait_time > 0 and not self._firstStart:
+                            self._print('Waiting for: {0} seconds'.format(self._wait_time))
+                            time.sleep(self._wait_time)
+                        self._firstStart = False
+
+                        #generating infotext
+                        if self._player.can_loop_count():
+                            infotext = '{0} time{1} (player counts loops)'.format(asset.repeats, "s" if asset.repeats>1 else "")
+                        else:
+                            infotext = '{0}/{1}'.format(asset.playcount, asset.repeats)
+                        if playlist.length()==1:
+                            infotext = '(endless loop)'
+
+                        # Start playing the first available asset.
+                        self._print('Playing asset: {0} {1}'.format(asset, infotext))
+                        # todo: maybe clear screen to black so that background (image/color) is not visible for videos with a resolution that is < screen resolution
+                        self._player.play(asset, loop=-1 if playlist.length()==1 else None, vol = self._sound_vol)
 
             # Check for changes in the file search path (like USB drives added)
             # and rebuild the playlist.
@@ -361,7 +373,11 @@ class VideoLooper:
                                       # player to stop.
                 self._print("player stopped")
                 # Rebuild playlist and show countdown again (if OSD enabled).
-                playlist = self._build_playlist()
+                if self._preload:
+                    self._preloader = ResourceLoader(self._build_playlist(), self._config)
+                    playlist = self._preloader
+                else:
+                    playlist = self._build_playlist()
                 self._prepare_to_run_playlist(playlist)
                 asset = playlist.get_next(self._is_random)
 
@@ -374,6 +390,8 @@ class VideoLooper:
         self._running = False
         if self._player is not None:
             self._player.stop()
+        if self._preloader is not None:
+            self._preloader.stop()
         pygame.quit()
         if self._keyboard_control:
             self._keyboard_thread.join(1)

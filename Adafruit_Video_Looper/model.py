@@ -2,23 +2,17 @@
 # Author: Tony DiCola
 # License: GNU GPLv2, see LICENSE.txt
 import random
-import time
 import os
 import re
 import itertools
+import pygame
+import threading
 from typing import Optional
 
+from .utils import timeit, load_image_fit_screen, is_media_type
 from .baselog import getlogger
 logger = getlogger(__name__)
 
-def timeit(method):
-    def timed(*args, **kw):
-        ts = time.time()
-        result = method(*args, **kw)
-        te = time.time()
-        logger.info('%r  %2.2f ms' % (method.__name__, (te - ts) * 1000))
-        return result
-    return timed
 
 class MediaAsset:
     """Representation of a media asset, either image or video"""
@@ -29,6 +23,7 @@ class MediaAsset:
         self.title = title
         self.repeats = int(repeats)
         self.playcount = 0
+        self.preload_resource = None
 
     def was_played(self):
         if self.repeats > 1:
@@ -45,6 +40,9 @@ class MediaAsset:
 
     def __eq__(self, other):
         return self.filename == other.filename
+
+    def __hash__(self):
+        return hash(self.filename)
 
     def __str__(self):
         return "{0} ({1})".format(self.filename, self.title) if self.title else self.filename
@@ -165,6 +163,79 @@ class Playlist:
     def length(self):
         """Return the number of movies in the playlist."""
         return self._length
+
+
+class ResourceLoader:
+
+    def __init__(self, playlist, config):
+        self._video_extensions = config.get('omxplayer', 'extensions') \
+                                 .translate(str.maketrans('', '', ' \t\r\n.')) \
+                                 .split(',')
+        self._image_extensions = config.get('sdl_image', 'extensions') \
+                                 .translate(str.maketrans('', '', ' \t\r\n.')) \
+                                 .split(',')
+        self._preload = max(config.getint('video_looper', 'preload'), 1)
+        self._playlist = playlist
+        self._cache = []
+        self._threads= {}
+
+    def get_next(self, is_random) -> MediaAsset:
+        if len(self._cache) == self._preload:
+            asset = self._cache.pop(0)
+            if asset in self._threads:
+                t = self._threads[asset]
+                if t.is_alive():
+                    t.join()
+                del self._threads[asset]
+
+        while len(self._cache) < self._preload:
+            asset = self._playlist.get_next(is_random)
+            if asset is not None:
+                self._load(asset)
+                self._cache.append(asset)
+            else:
+                break
+
+        if len(self._cache) > 0:
+            return self._cache[0]
+        else:
+            return None
+
+    def length(self):
+        return self._playlist.length()
+
+    def stop(self):
+        for t in self._threads.values():
+            t.join()
+
+    def is_loaded(self, asset):
+        if asset in self._threads:
+            t = self._threads[asset]
+            if not t.is_alive():
+                return asset.preload_resource is not None
+        return False
+
+    def _load(self, asset):
+        if asset is None:
+            return
+
+        t = threading.Thread(target=self._do_load, args=(asset, ))
+        self._threads[asset] = t
+        t.start()
+
+        logger.info('_load %s' % asset.filename)
+
+    @timeit
+    def _do_load(self, asset):
+        if is_media_type(asset.filename, self._image_extensions):
+            asset.preload_resource = load_image_fit_screen(asset.filename)
+        elif is_media_type(asset.filename, self._video_extensions):
+            # todo request transcoded video according to screen size
+            asset.preload_resource = True
+        else:
+            logger.warn('not support, skip %s' % asset)
+        logger.info('_do_load %s' % asset.filename)
+
 
 if __name__ == '__main__':
     l = Playlist.from_paths('.', 'py')
