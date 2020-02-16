@@ -6,6 +6,7 @@ import configparser
 import importlib
 import os
 import re
+import subprocess
 import sys
 import signal
 import time
@@ -13,6 +14,7 @@ import pygame
 import threading
 
 from .model import Playlist, ResourceLoader
+from .alsa_config import parse_hw_device
 from .playlist_builders import build_playlist_m3u
 
 from .baselog import getlogger
@@ -80,6 +82,12 @@ class VideoLooper:
         # Load configured video player and file reader modules.
         self._player = self._load_player()
         self._reader = self._load_file_reader()
+        # Load ALSA hardware configuration.
+        self._alsa_hw_device = parse_hw_device(self._config.get('alsa', 'hw_device'))
+        self._alsa_hw_vol_control = self._config.get('alsa', 'hw_vol_control')
+        self._alsa_hw_vol_file = self._config.get('alsa', 'hw_vol_file')
+        # default ALSA hardware volume (volume will not be changed)
+        self._alsa_hw_vol = None
         # Load sound volume file name value
         self._sound_vol_file = self._config.get('omxplayer', 'sound_vol_file')
         # default value to 0 millibels (omxplayer)
@@ -99,7 +107,7 @@ class VideoLooper:
         # start keyboard handler thread:
         # Event handling for key press, if keyboard control is enabled
         if self._keyboard_control:
-            self._keyboard_thread = threading.Thread(target=self._handle_keyboard_shortcuts)
+            self._keyboard_thread = threading.Thread(target=self._handle_keyboard_shortcuts, daemon=True)
             self._keyboard_thread.start()
 
     def _print(self, message):
@@ -191,6 +199,14 @@ class VideoLooper:
                 # Skip paths that don't exist or are files.
                 if not os.path.exists(path) or not os.path.isdir(path):
                     continue
+
+                # Get the ALSA hardware volume from the file in the usb key
+                if self._alsa_hw_vol_file:
+                    alsa_hw_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._alsa_hw_vol_file)
+                    if os.path.exists(alsa_hw_vol_file_path):
+                        with open(alsa_hw_vol_file_path, 'r') as alsa_hw_vol_file:
+                            alsa_hw_vol_string = alsa_hw_vol_file.readline()
+                            self._alsa_hw_vol = alsa_hw_vol_string
 
                 # Get the video volume from the file in the usb key
                 sound_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._sound_vol_file)
@@ -295,25 +311,39 @@ class VideoLooper:
         else:
             self._idle_message()
 
+    def _set_hardware_volume(self):
+        if self._alsa_hw_vol != None:
+            msg = 'setting hardware volume (device: {}, control: {}, value: {})'
+            self._print(msg.format(
+                self._alsa_hw_device,
+                self._alsa_hw_vol_control,
+                self._alsa_hw_vol
+            ))
+            cmd = ['amixer', '-M']
+            if self._alsa_hw_device != None:
+                cmd.extend(('-c', str(self._alsa_hw_device[0])))
+            cmd.extend(('set', self._alsa_hw_vol_control, '--', self._alsa_hw_vol))
+            subprocess.check_call(cmd)
+            
     def _handle_keyboard_shortcuts(self):
         while self._running:
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN:
-                    # If pressed key is ESC quit program
-                    if event.key == pygame.K_ESCAPE:
-                        self._print("ESC was pressed. quitting...")
-                        self.quit()
-                    if event.key == pygame.K_k:
-                        self._print("k was pressed. skipping...")
+            event = pygame.event.wait()
+            if event.type == pygame.KEYDOWN:
+                # If pressed key is ESC quit program
+                if event.key == pygame.K_ESCAPE:
+                    self._print("ESC was pressed. quitting...")
+                    self.quit()
+                if event.key == pygame.K_k:
+                    self._print("k was pressed. skipping...")
+                    self._player.stop(3)
+                if event.key == pygame.K_s:
+                    if self._playbackStopped:
+                        self._print("s was pressed. starting...")
+                        self._playbackStopped = False
+                    else:
+                        self._print("s was pressed. stopping...")
+                        self._playbackStopped = True
                         self._player.stop(3)
-                    if event.key == pygame.K_s:
-                        if self._playbackStopped:
-                            self._print("s was pressed. starting...")
-                            self._playbackStopped = False
-                        else:
-                            self._print("s was pressed. stopping...")
-                            self._playbackStopped = True
-                            self._player.stop(3)
 
     def run(self):
         """Main program loop.  Will never return!"""
@@ -324,6 +354,7 @@ class VideoLooper:
         else:
             playlist = self._build_playlist()
         self._prepare_to_run_playlist(playlist)
+        self._set_hardware_volume()
         asset = playlist.get_next(self._is_random)
         # Main loop to play videos in the playlist and listen for file changes.
         while self._running:
@@ -379,9 +410,13 @@ class VideoLooper:
                 else:
                     playlist = self._build_playlist()
                 self._prepare_to_run_playlist(playlist)
+                self._set_hardware_volume()
                 asset = playlist.get_next(self._is_random)
 
-            # Give the CPU some time to do other tasks.
+            # Give the CPU some time to do other tasks. low values increase "responsiveness to changes" and reduce the pause between files
+            # but increase CPU usage
+            # since keyboard commands are handled in a seperate thread this sleeptime mostly influences the pause between files
+                        
             time.sleep(0.002)
 
     def quit(self):
@@ -393,8 +428,7 @@ class VideoLooper:
         if self._preloader is not None:
             self._preloader.stop()
         pygame.quit()
-        if self._keyboard_control:
-            self._keyboard_thread.join(1)
+
 
 
     def signal_quit(self, signal, frame):

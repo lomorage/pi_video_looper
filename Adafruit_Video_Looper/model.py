@@ -13,6 +13,7 @@ from .utils import timeit, load_image_fit_screen, is_media_type
 from .baselog import getlogger
 logger = getlogger(__name__)
 
+random.seed()
 
 class MediaAsset:
     """Representation of a media asset, either image or video"""

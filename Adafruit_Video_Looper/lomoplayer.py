@@ -8,6 +8,7 @@ import time
 import pygame
 from multiprocessing import Process
 
+from .alsa_config import parse_hw_device
 from .utils import timeit, load_image_fit_screen, is_media_type
 from .baselog import getlogger
 logger = getlogger(__name__)
@@ -49,7 +50,11 @@ class LomoPlayer:
         self._preload = (config.getint('video_looper', 'preload') > 0)
         self._extra_args = config.get('omxplayer', 'extra_args').split()
         self._sound = config.get('omxplayer', 'sound').lower()
-        assert self._sound in ('hdmi', 'local', 'both'), 'Unknown omxplayer sound configuration value: {0} Expected hdmi, local, or both.'.format(self._sound)
+        assert self._sound in ('hdmi', 'local', 'both', 'alsa'), 'Unknown omxplayer sound configuration value: {0} Expected hdmi, local, both or alsa.'.format(self._sound)
+        self._alsa_hw_device = parse_hw_device(config.get('alsa', 'hw_device'))
+        if self._alsa_hw_device != None and self._sound == 'alsa':
+            self._sound = 'alsa:hw:{},{}'.format(self._alsa_hw_device[0], self._alsa_hw_device[1])
+
         self._show_titles = config.getboolean('omxplayer', 'show_titles')
         if self._show_titles:
             title_duration = config.getint('omxplayer', 'title_duration')
