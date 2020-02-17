@@ -87,7 +87,7 @@ def cacheIter(cachfile):
     try:
         with open(cachfile, 'r') as f:
             for line in f.readlines():
-                yield getMediaAsset(line)
+                yield getMediaAsset(line.rstrip())
     except Exception as e:
         logger.error('iterate %s error: %s' % (cachfile, e))
 
@@ -228,14 +228,19 @@ class ResourceLoader:
 
     @timeit
     def _do_load(self, asset):
-        if is_media_type(asset.filename, self._image_extensions):
-            asset.preload_resource = load_image_fit_screen(asset.filename)
-        elif is_media_type(asset.filename, self._video_extensions):
-            # todo request transcoded video according to screen size
-            asset.preload_resource = True
-        else:
-            logger.warn('not support, skip %s' % asset)
-        logger.info('_do_load %s' % asset.filename)
+        try:
+            if is_media_type(asset.filename, self._image_extensions):
+                asset.preload_resource = load_image_fit_screen(asset.filename)
+            elif is_media_type(asset.filename, self._video_extensions):
+                # todo request transcoded video according to screen size
+                asset.preload_resource = True
+            else:
+                logger.warn('not support, skip %s' % asset)
+            logger.info('_do_load %s' % asset.filename)
+        except Exception as e:
+            logger.error('error _do_load %s: %s' % (asset.filename, e))
+
+
 
 
 if __name__ == '__main__':

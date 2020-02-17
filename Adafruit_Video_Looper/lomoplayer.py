@@ -106,6 +106,8 @@ class LomoPlayer:
     def play_video(self, movie, loop, vol):
         """Play the provided movie file, optionally looping it repeatedly."""
         logger.info('play video %s' % movie)
+        self._screen.fill(self._bgcolor)
+        pygame.display.flip()
         self.stop(3)  # Up to 3 second delay to let the old player stop.
         # Assemble list of arguments.
         args = ['omxplayer']
