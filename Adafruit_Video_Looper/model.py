@@ -96,6 +96,10 @@ class Playlist:
 
     CACHE_FILE = '/boot/lomo-playlist.txt'
 
+    @staticmethod
+    def cacheFileExists():
+        return os.path.exists(Playlist.CACHE_FILE)
+
     @classmethod
     def from_paths(cls, media_paths, extensions):
         return cls(fileSystemMediaIter(media_paths, extensions))

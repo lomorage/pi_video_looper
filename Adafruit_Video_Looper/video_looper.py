@@ -57,7 +57,7 @@ class VideoLooper:
         # Load other configuration values.
         self._osd = self._config.getboolean('video_looper', 'osd')
         self._is_random = self._config.getboolean('video_looper', 'is_random')
-        self._from_playlist_cache = self._config.getboolean('video_looper', 'from_playlist_cache')
+        self._force_rescan_playlist = self._config.getboolean('video_looper', 'force_rescan_playlist')
         self._keyboard_control = self._config.getboolean('video_looper', 'keyboard_control')
         # Get seconds for countdown from config
         self._countdown_time = self._config.getint('video_looper', 'countdown_time')
@@ -190,7 +190,7 @@ class VideoLooper:
         """Search all the file reader paths for media files with the provided
         extensions.
         """
-        if self._from_playlist_cache:
+        if not self._force_rescan_playlist and Playlist.cacheFileExists():
             return Playlist.from_cache()
         else:
             # Get list of paths to search from the file reader.
