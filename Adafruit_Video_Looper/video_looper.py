@@ -216,6 +216,7 @@ class VideoLooper:
                         if self._is_number(sound_vol_string):
                             self._sound_vol = int(float(sound_vol_string))
 
+            self.display_message('loading assets ...')
             # Create a playlist with the sorted list of media assets.
             return Playlist.from_paths(paths, self._extensions)
 
