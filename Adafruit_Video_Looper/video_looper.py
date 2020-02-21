@@ -429,8 +429,7 @@ class VideoLooper:
         if self._preloader is not None:
             self._preloader.stop()
         pygame.quit()
-
-
+        quit()
 
     def signal_quit(self, signal, frame):
         """Shut down the program, meant to by called by signal handler."""
