@@ -216,9 +216,10 @@ class VideoLooper:
                         if self._is_number(sound_vol_string):
                             self._sound_vol = int(float(sound_vol_string))
 
-            self.display_message('loading assets ...')
             # Create a playlist with the sorted list of media assets.
-            return Playlist.from_paths(paths, self._extensions)
+            playlist = Playlist.from_paths(paths, self._extensions)
+            playlist.load(lambda c: self.display_message('loading %d assets...' % c))
+            return playlist
 
     def _blank_screen(self):
         """Render a blank screen filled with the background color."""

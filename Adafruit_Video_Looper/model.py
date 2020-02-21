@@ -115,19 +115,27 @@ class Playlist:
     def __init__(self, assets_iter, scan=True):
         """Create a playlist from the provided list of media assets iterator."""
         self._assets_iter, self._backup_iter = itertools.tee(assets_iter)
-        if scan:
-            self._scan()
+        self._force_scan = scan
+
+    def load(self, func_progress=None):
+        if self._force_scan:
+            self._scan(func_progress)
         else:
             self._length = len(list(self._assets_iter))
 
+        if func_progress is not None:
+            func_progress(self._length)
+
     @timeit
-    def _scan(self):
+    def _scan(self, func_progress):
         self._length = 0
         try:
             with open(self.CACHE_FILE, 'w') as f:
                 for item in self._assets_iter:
                     self._length += 1
                     f.write('%s\n' % item.filename)
+                    if func_progress is not None:
+                        func_progress(self._length)
         except Exception as e:
             logger.error('scan %s error: %s' % (self.CACHE_FILE, e))
 
