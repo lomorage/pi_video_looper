@@ -191,7 +191,7 @@ class VideoLooper:
         extensions.
         """
         if not self._force_rescan_playlist and Playlist.cacheFileExists():
-            return Playlist.from_cache()
+            playlist = Playlist.from_cache()
         else:
             # Get list of paths to search from the file reader.
             paths = self._reader.search_paths()
@@ -218,8 +218,9 @@ class VideoLooper:
 
             # Create a playlist with the sorted list of media assets.
             playlist = Playlist.from_paths(paths, self._extensions)
-            playlist.load(lambda c: self.display_message('loading %d assets...' % c))
-            return playlist
+
+        playlist.load(lambda c: self.display_message('loading %d assets...' % c))
+        return playlist
 
     def _blank_screen(self):
         """Render a blank screen filled with the background color."""
