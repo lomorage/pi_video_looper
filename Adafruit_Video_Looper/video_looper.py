@@ -63,6 +63,8 @@ class VideoLooper:
         self._countdown_time = self._config.getint('video_looper', 'countdown_time')
         # Get seconds for waittime bewteen files from config
         self._wait_time = self._config.getint('video_looper', 'wait_time')
+        # Get SDL device config
+        self._sdl_device = self._config.get('video_looper', 'sdl_device')
         # Parse string of 3 comma separated values like "255, 255, 255" into
         # list of ints for colors.
         self._bgcolor = list(map(int, self._config.get('video_looper', 'bgcolor')
@@ -72,6 +74,7 @@ class VideoLooper:
                                              .translate(str.maketrans('','', ','))
                                              .split()))
         # Initialize pygame and display a blank screen.
+        os.environ["SDL_FBDEV"] = self._sdl_device
         pygame.display.init()
         pygame.font.init()
         pygame.mouse.set_visible(False)
