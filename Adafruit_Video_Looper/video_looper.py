@@ -106,6 +106,7 @@ class VideoLooper:
 
         self._preload = (self._config.getint('video_looper', 'preload') > 0)
         self._preloader = None
+        self._force_reload = False
 
         # start keyboard handler thread:
         # Event handling for key press, if keyboard control is enabled
@@ -255,7 +256,7 @@ class VideoLooper:
             return
         # Draw message with number of assets loaded and animate countdown.
         # First render text that doesn't change and get static dimensions.
-        label1 = self._render_text(message + ' Starting playback in:')
+        label1 = self._render_text(message)
         l1w, l1h = label1.get_size()
         sw, sh = self._screen.get_size()
         for i in range(self._countdown_time, 0, -1):
@@ -339,6 +340,9 @@ class VideoLooper:
                 if event.key == pygame.K_ESCAPE:
                     self._print("ESC was pressed. quitting...")
                     self.quit()
+                if event.key == pygame.K_r:
+                    self._print("r was pressed. reload...")
+                    self._force_reload = True
                 if event.key == pygame.K_k:
                     self._print("k was pressed. skipping...")
                     self._player.stop(3)
@@ -351,16 +355,20 @@ class VideoLooper:
                         self._playbackStopped = True
                         self._player.stop(3)
 
-    def run(self):
-        """Main program loop.  Will never return!"""
-        # Get playlist of media assets to play from file reader.
+    def _load_playlist(self):
         if self._preload:
             self._preloader = ResourceLoader(self._build_playlist(), self._config)
             playlist = self._preloader
         else:
             playlist = self._build_playlist()
         self._prepare_to_run_playlist(playlist)
+        return playlist
+
+    def run(self):
+        """Main program loop.  Will never return!"""
         self._set_hardware_volume()
+        # Get playlist of media assets to play from file reader.
+        playlist = self._load_playlist()
         asset = playlist.get_next(self._is_random)
         # Main loop to play videos in the playlist and listen for file changes.
         while self._running:
@@ -404,20 +412,19 @@ class VideoLooper:
 
             # Check for changes in the file search path (like USB drives added)
             # and rebuild the playlist.
-            if self._reader.is_changed() and not self._playbackStopped:
-                self._print("reader changed, stopping player")
+            if (self._reader.is_changed() or self._force_reload) and not self._playbackStopped:
+                self._print("need reload, stopping player")
                 self._player.stop(3)  # Up to 3 second delay waiting for old 
                                       # player to stop.
                 self._print("player stopped")
                 # Rebuild playlist and show countdown again (if OSD enabled).
-                if self._preload:
-                    self._preloader = ResourceLoader(self._build_playlist(), self._config)
-                    playlist = self._preloader
-                else:
-                    playlist = self._build_playlist()
-                self._prepare_to_run_playlist(playlist)
                 self._set_hardware_volume()
+                if self._force_reload:
+                    self._force_rescan_playlist = True
+                playlist = self._load_playlist()
                 asset = playlist.get_next(self._is_random)
+                self._force_reload = False
+                self._force_rescan_playlist = False
 
             # Give the CPU some time to do other tasks. low values increase "responsiveness to changes" and reduce the pause between files
             # but increase CPU usage
