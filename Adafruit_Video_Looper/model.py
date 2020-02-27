@@ -15,6 +15,10 @@ logger = getlogger(__name__)
 
 random.seed()
 
+LOAD_FAIL = -1
+LOAD_PENDING = 0
+LOAD_SUCC = 1
+
 class MediaAsset:
     """Representation of a media asset, either image or video"""
 
@@ -25,6 +29,7 @@ class MediaAsset:
         self.repeats = int(repeats)
         self.playcount = 0
         self.preload_resource = None
+        self.loading_status = LOAD_PENDING
 
     def was_played(self):
         if self.repeats > 1:
@@ -221,12 +226,11 @@ class ResourceLoader:
         for t in self._threads.values():
             t.join()
 
-    def is_loaded(self, asset):
+    def loading_status(self, asset):
         if asset in self._threads:
-            t = self._threads[asset]
-            if not t.is_alive():
-                return asset.preload_resource is not None
-        return False
+            return asset.loading_status
+        else:
+            return LOAD_FAIL
 
     def _load(self, asset):
         if asset is None:
@@ -240,19 +244,21 @@ class ResourceLoader:
 
     @timeit
     def _do_load(self, asset):
+        logger.info('_do_load %s' % asset.filename)
         try:
             if is_media_type(asset.filename, self._image_extensions):
                 asset.preload_resource = load_image_fit_screen(asset.filename)
+                asset.loading_status = LOAD_SUCC
             elif is_media_type(asset.filename, self._video_extensions):
                 # todo request transcoded video according to screen size
                 asset.preload_resource = True
+                asset.loading_status = LOAD_SUCC
             else:
                 logger.warn('not support, skip %s' % asset)
-            logger.info('_do_load %s' % asset.filename)
+                asset.loading_status = LOAD_FAIL
         except Exception as e:
             logger.error('error _do_load %s: %s' % (asset.filename, e))
-
-
+            asset.loading_status = LOAD_FAIL
 
 
 if __name__ == '__main__':

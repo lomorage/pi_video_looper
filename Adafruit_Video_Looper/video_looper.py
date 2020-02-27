@@ -13,7 +13,7 @@ import time
 import pygame
 import threading
 
-from .model import Playlist, ResourceLoader
+from .model import Playlist, ResourceLoader, LOAD_PENDING, LOAD_SUCC, LOAD_FAIL
 from .alsa_config import parse_hw_device
 from .playlist_builders import build_playlist_m3u
 
@@ -387,7 +387,16 @@ class VideoLooper:
                     if self._preloader is None:
                         ready = True
                     else:
-                        ready = self._preloader.is_loaded(asset)
+                        ld = self._preloader.loading_status(asset)
+                        if ld == LOAD_SUCC:
+                            ready = True
+                        elif ld == LOAD_PENDING:
+                            ready = False
+                        else:
+                            logger.warning('load failure %s, move to next' % asset)
+                            ready = False
+                            asset = playlist.get_next(self._is_random)
+                            logger.warning('move to next %s' % asset)
 
                     if ready:
                         asset.was_played()
