@@ -200,6 +200,8 @@ class ResourceLoader:
     def get_next(self, is_random) -> MediaAsset:
         if len(self._cache) == self._preload:
             asset = self._cache.pop(0)
+            logger.info("pop asset %s: %s" % (asset, asset.preload_resource))
+            asset.preload_resource = None
             if asset in self._threads:
                 t = self._threads[asset]
                 if t.is_alive():
