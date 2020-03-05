@@ -460,8 +460,8 @@ class VideoLooper:
 # Main entry point.
 if __name__ == '__main__':
     print('Starting Adafruit Video Looper.')
-    # Default config path to /boot.
-    config_path = '/boot/video_looper.ini'
+    # Default config path to /opt/lomorage/var.
+    config_path = '/opt/lomorage/var/video_looper.ini'
     # Override config path if provided as parameter.
     if len(sys.argv) == 2:
         config_path = sys.argv[1]

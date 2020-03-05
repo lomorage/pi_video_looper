@@ -99,7 +99,7 @@ def cacheIter(cachfile):
 class Playlist:
     """Representation of a playlist of movies."""
 
-    CACHE_FILE = '/boot/lomo-playlist.txt'
+    CACHE_FILE = '/opt/lomorage/var/lomo-playlist.txt'
 
     @staticmethod
     def cacheFileExists():
