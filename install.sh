@@ -53,7 +53,8 @@ sudo mkdir -p /home/pi/video # create default video directory
 sudo pip3 install setuptools
 sudo python3 setup.py install --force
 
-sudo cp ./assets/video_looper.ini /boot/video_looper.ini
+mkdir -p /opt/lomorage/var
+sudo cp ./assets/video_looper.ini /opt/lomorage/var/video_looper.ini
 
 echo "Configuring video_looper to run on start..."
 echo "==========================================="

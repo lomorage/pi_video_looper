@@ -33,12 +33,12 @@ chmod +x $BUILD_NAME/DEBIAN/preinst
 
 cat << EOF > $BUILD_NAME/DEBIAN/postinst
 #!/bin/bash
-ln -s /opt/lomorage/lib/lib/libde265.so.0.0.12 /opt/lomorage/lib/lib/libde265.so
-ln -s /opt/lomorage/lib/lib/libde265.so.0.0.12 /opt/lomorage/lib/lib/libde265.so.0
-ln -s /opt/lomorage/lib/lib/libheif.so.1.6.2 /opt/lomorage/lib/lib/libheif.so
-ln -s /opt/lomorage/lib/lib/libheif.so.1.6.2 /opt/lomorage/lib/lib/libheif.so.1
-ln -s /opt/lomorage/lib/lib/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lib/libSDL_image.so
-ln -s /opt/lomorage/lib/lib/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lib/libSDL_image-1.2.so.0
+ln -sf /opt/lomorage/lib/lib/libde265.so.0.0.12 /opt/lomorage/lib/lib/libde265.so
+ln -sf /opt/lomorage/lib/lib/libde265.so.0.0.12 /opt/lomorage/lib/lib/libde265.so.0
+ln -sf /opt/lomorage/lib/lib/libheif.so.1.6.2 /opt/lomorage/lib/lib/libheif.so
+ln -sf /opt/lomorage/lib/lib/libheif.so.1.6.2 /opt/lomorage/lib/lib/libheif.so.1
+ln -sf /opt/lomorage/lib/lib/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lib/libSDL_image.so
+ln -sf /opt/lomorage/lib/lib/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lib/libSDL_image-1.2.so.0
 service supervisor start
 EOF
 chmod +x $BUILD_NAME/DEBIAN/postinst
