@@ -1,12 +1,12 @@
 import logging
+from logging.handlers import RotatingFileHandler
 
 def getlogger(modname):
     # logger
     logger = logging.getLogger(modname)
     logger.setLevel(logging.DEBUG)
-    # create console handler and set level to debug
-    #ch = logging.StreamHandler()
-    ch = logging.FileHandler('/tmp/lomo-frame.log')
+
+    ch = RotatingFileHandler('/opt/lomorage/var/lomo-frame.log', maxBytes=10*1024*1024, backupCount=5)
     ch.setLevel(logging.DEBUG)
     # create formatter
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
