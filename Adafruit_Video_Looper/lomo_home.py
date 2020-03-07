@@ -9,8 +9,8 @@ class LomoReader:
         self._load_config(config)
 
     def _load_config(self, config):
-        # mount path like "/media/WD_90C27F73C27F5C82"
-        self._mount_path = config.get('lomorage', 'mount_path')
+        # mount path like "/media/WD_90C27F73C27F5C82:/media/SanDisk_ADFCEE"
+        self._mount_path = config.get('lomorage', 'mount_path').split(':')
 
     def search_paths(self):
         """Return a list of paths to search for files. Will return a list of all
@@ -18,7 +18,10 @@ class LomoReader:
         Used to generate playlist, will find all media files if no playlist files
         found in those directories,
         """
-        return glob.glob(self._mount_path)
+        spaths = []
+        for mpath in self._mount_path:
+            spaths.extend(glob.glob(mpath))
+        return spaths
 
     def is_changed(self):
         """LomoReader will reload via file watchdog automatially
