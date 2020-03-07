@@ -20,7 +20,7 @@ Version: $VERSION
 Section: python
 Priority: optional
 Architecture: all
-Depends: python3, python3-pyudev, python3-pygame, supervisor, omxplayer, ntfs-3g, exfat-fuse
+Depends: python3, python3-pyudev, python3-pygame, supervisor, lomo-omxplayer, ntfs-3g, exfat-fuse
 Maintainer: Jeromy Fu<fuji246@gmail.com>
 Description: Lomorage Digital Frame
 EOF
