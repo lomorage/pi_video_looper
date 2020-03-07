@@ -8,6 +8,7 @@ import itertools
 import pygame
 import threading
 from typing import Optional
+from enum import Enum
 
 from .utils import timeit, load_image_fit_screen, is_media_type
 from .baselog import getlogger
@@ -18,6 +19,12 @@ random.seed()
 LOAD_FAIL = -1
 LOAD_PENDING = 0
 LOAD_SUCC = 1
+
+class MediaType(Enum):
+    OTHERS = -1
+    IMAGE = 0
+    VIDEO = 1
+    ALL = 2
 
 class MediaAsset:
     """Representation of a media asset, either image or video"""
@@ -106,21 +113,38 @@ class Playlist:
         return os.path.exists(Playlist.CACHE_FILE)
 
     @classmethod
-    def from_paths(cls, media_paths, extensions):
-        return cls(fileSystemMediaIter(media_paths, extensions))
+    def from_paths(cls, media_paths, extensions, config):
+        return cls(fileSystemMediaIter(media_paths, extensions), config)
 
     @classmethod
-    def from_list(cls, media_list):
-        return cls(mediaListIter(media_list))
+    def from_list(cls, media_list, config):
+        return cls(mediaListIter(media_list), config)
 
     @classmethod
-    def from_cache(cls):
-        return cls(cacheIter(Playlist.CACHE_FILE), False)
+    def from_cache(cls, config):
+        return cls(cacheIter(Playlist.CACHE_FILE), config, False)
 
-    def __init__(self, assets_iter, scan=True):
+    def __init__(self, assets_iter, config, scan=True):
         """Create a playlist from the provided list of media assets iterator."""
         self._assets_iter, self._backup_iter = itertools.tee(assets_iter)
         self._force_scan = scan
+        self._media_type = config.get('playlist', 'media_type').upper()
+        assert self._media_type in MediaType.__members__.keys(), 'Unknown media type value: {0} Expected video, image or all.'.format(self._media_type)
+        self._media_type = MediaType.__members__[self._media_type]
+        self._video_extensions = config.get('omxplayer', 'extensions') \
+                                 .translate(str.maketrans('', '', ' \t\r\n.')) \
+                                 .split(',')
+        self._image_extensions = config.get('sdl_image', 'extensions') \
+                                 .translate(str.maketrans('', '', ' \t\r\n.')) \
+                                 .split(',')
+
+    def _is_media_type(self, asset):
+        if is_media_type(asset.filename, self._video_extensions):
+            return self._media_type == MediaType.ALL or self._media_type == MediaType.VIDEO
+        elif is_media_type(asset.filename, self._image_extensions):
+            return self._media_type == MediaType.ALL or self._media_type == MediaType.IMAGE
+        else:
+            return False
 
     def load(self, func_progress=None):
         if self._force_scan:
@@ -173,10 +197,17 @@ class Playlist:
         """Get the next asset in the playlist. Will loop to start of playlist
         after reaching end.
         """
-        if not is_random:
-            return self._get_next()
-        else:
-            return self._get_random()
+        i = 0
+        while i < self._length:
+            if not is_random:
+                asset = self._get_next()
+            else:
+                asset = self._get_random()
+            i += 1
+            if self._is_media_type(asset):
+                return asset
+
+        return None
 
     def length(self):
         """Return the number of movies in the playlist."""
@@ -264,14 +295,16 @@ class ResourceLoader:
 
 
 if __name__ == '__main__':
-    l = Playlist.from_paths('.', 'py')
+    import configparser
+    config = configparser.ConfigParser().read("../assets/video_looper.ini")
+    l = Playlist.from_paths('.', 'py', config)
     for i in range(l.length()):
         print(l.get_next(False).filename)
 
-    l = Playlist.from_list([getMediaAsset('file1')])
+    l = Playlist.from_list([getMediaAsset('file1')], config)
     print(l.get_next(True))
 
-    l = Playlist.from_list([getMediaAsset(r) for r in ['file1', 'file2']])
+    l = Playlist.from_list([getMediaAsset(r) for r in ['file1', 'file2']], config)
     print(l.get_next(True))
     print(l.get_next(True))
     print(l.get_next(True))

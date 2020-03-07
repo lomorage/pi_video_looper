@@ -56,8 +56,8 @@ class VideoLooper:
         self._console_output = self._config.getboolean('video_looper', 'console_output')
         # Load other configuration values.
         self._osd = self._config.getboolean('video_looper', 'osd')
-        self._is_random = self._config.getboolean('video_looper', 'is_random')
-        self._force_rescan_playlist = self._config.getboolean('video_looper', 'force_rescan_playlist')
+        self._is_random = self._config.getboolean('playlist', 'is_random')
+        self._force_rescan_playlist = self._config.getboolean('playlist', 'force_rescan_playlist')
         self._keyboard_control = self._config.getboolean('video_looper', 'keyboard_control')
         # Get seconds for countdown from config
         self._countdown_time = self._config.getint('video_looper', 'countdown_time')
@@ -178,7 +178,7 @@ class VideoLooper:
 
                 basepath, extension = os.path.splitext(playlist_path)
                 if extension == '.m3u' or extension == '.m3u8':
-                    return build_playlist_m3u(playlist_path)
+                    return build_playlist_m3u(playlist_path, self._config)
                 else:
                     self._print('Unrecognized playlist format {0}.'.format(extension))
                     return self._build_playlist_from_all_files()
@@ -195,7 +195,7 @@ class VideoLooper:
         extensions.
         """
         if not self._force_rescan_playlist and Playlist.cacheFileExists():
-            playlist = Playlist.from_cache()
+            playlist = Playlist.from_cache(self._config)
         else:
             # Get list of paths to search from the file reader.
             paths = self._reader.search_paths()
@@ -221,7 +221,7 @@ class VideoLooper:
                             self._sound_vol = int(float(sound_vol_string))
 
             # Create a playlist with the sorted list of media assets.
-            playlist = Playlist.from_paths(paths, self._extensions)
+            playlist = Playlist.from_paths(paths, self._extensions, self._config)
 
         playlist.load(lambda c: self.display_message('loading %d assets...' % c))
         return playlist

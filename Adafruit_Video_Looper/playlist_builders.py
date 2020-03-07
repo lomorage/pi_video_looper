@@ -5,7 +5,7 @@ import urllib.parse
 from .model import Playlist, MediaAsset
 
 
-def build_playlist_m3u(playlist_path: str):
+def build_playlist_m3u(playlist_path: str, config):
     playlist_dirname = os.path.dirname(playlist_path)
     media_list = []
 
@@ -25,4 +25,4 @@ def build_playlist_m3u(playlist_path: str):
                 media_list.append(MediaAsset(path, title))
                 title = None
 
-    return Playlist.from_list(media_list)
+    return Playlist.from_list(media_list, config)

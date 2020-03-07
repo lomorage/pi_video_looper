@@ -18,7 +18,7 @@ class LomoReader:
         Used to generate playlist, will find all media files if no playlist files
         found in those directories,
         """
-        return glob.glob(self._mount_path + '/*/Photos/master')
+        return glob.glob(self._mount_path)
 
     def is_changed(self):
         """LomoReader will reload via file watchdog automatially
