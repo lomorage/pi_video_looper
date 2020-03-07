@@ -159,14 +159,16 @@ class Playlist:
     def _scan(self, func_progress):
         self._length = 0
         try:
-            with open(self.CACHE_FILE, 'w') as f:
+            tmpfile = self.CACHE_FILE + ".tmp"
+            with open(tmpfile, 'w') as f:
                 for item in self._assets_iter:
                     self._length += 1
                     f.write('%s\n' % item.filename)
                     if func_progress is not None:
                         func_progress(self._length)
+            os.rename(tmpfile, self.CACHE_FILE)
         except Exception as e:
-            logger.error('scan %s error: %s' % (self.CACHE_FILE, e))
+            logger.error('scan error: %s' % e)
 
     def _get_next(self) -> MediaAsset:
         asset = next(self._assets_iter, None)
