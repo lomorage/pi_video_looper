@@ -49,6 +49,8 @@ else
     mv "$NEW_INI_FILE" "$INI_FILE"
 fi
 
+/sbin/framectrl.sh add
+
 service supervisor start
 EOF
 chmod +x $BUILD_NAME/DEBIAN/postinst
@@ -69,6 +71,9 @@ cp Adafruit_Video_Looper/usb_drive_mounter.py  $BUILD_NAME/usr/lib/python3/dist-
 cp Adafruit_Video_Looper/usb_drive.py          $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
 cp Adafruit_Video_Looper/utils.py              $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
 cp Adafruit_Video_Looper/video_looper.py       $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
+
+mkdir -p $BUILD_NAME/sbin
+cp framectrl.sh $BUILD_NAME/sbin/
 
 mkdir -p $BUILD_NAME/opt/lomorage/var
 cp assets/video_looper.ini  $BUILD_NAME/$NEW_INI_FILE
