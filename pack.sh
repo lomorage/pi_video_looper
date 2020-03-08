@@ -76,6 +76,9 @@ cp assets/video_looper.ini  $BUILD_NAME/$NEW_INI_FILE
 mkdir -p $BUILD_NAME/etc/supervisor/conf.d
 cp assets/video_looper.conf $BUILD_NAME/etc/supervisor/conf.d/
 
+mkdir -p $BUILD_NAME/etc/cron.daily
+cp rescan.sh $BUILD_NAME/etc/cron.daily/
+
 mkdir -p $BUILD_NAME/opt/lomorage/lib/lib
 
 cp deps/arm/libde265.a         $BUILD_NAME/opt/lomorage/lib/lib/
