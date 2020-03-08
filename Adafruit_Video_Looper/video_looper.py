@@ -452,6 +452,10 @@ class VideoLooper:
         pygame.quit()
         quit()
 
+    def signal_reload(self, signal, frame):
+        logger.info("reloading on SIGUSR1")
+        self._force_reload = True
+
     def signal_quit(self, signal, frame):
         """Shut down the program, meant to by called by signal handler."""
         self._print("received signal to quit")
@@ -470,5 +474,6 @@ if __name__ == '__main__':
     # Configure signal handlers to quit on TERM or INT signal.
     signal.signal(signal.SIGTERM, videolooper.signal_quit)
     signal.signal(signal.SIGINT, videolooper.signal_quit)
+    signal.signal(signal.SIGUSR1, videolooper.signal_reload)
     # Run the main loop.
     videolooper.run()
