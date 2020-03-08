@@ -6,6 +6,8 @@ commitHash=$(git rev-parse --short HEAD)
 VERSION="$nowDate+$commitHash"
 PACKAGE_NAME="lomo-frame"
 BUILD_NAME=$PACKAGE_NAME"_"$VERSION
+INI_FILE=/opt/lomorage/var/video_looper.ini
+NEW_INI_FILE=/opt/lomorage/var/video_looper.ini.new
 
 if [ -d $BUILD_NAME ]; then
     rm -rf $BUILD_NAME
@@ -39,6 +41,14 @@ ln -sf /opt/lomorage/lib/lib/libheif.so.1.6.2 /opt/lomorage/lib/lib/libheif.so
 ln -sf /opt/lomorage/lib/lib/libheif.so.1.6.2 /opt/lomorage/lib/lib/libheif.so.1
 ln -sf /opt/lomorage/lib/lib/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lib/libSDL_image.so
 ln -sf /opt/lomorage/lib/lib/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lib/libSDL_image-1.2.so.0
+
+if [ -f "$INI_FILE" ]; then
+    echo "difference of configuration:"
+    diff "$NEW_INI_FILE" "$INI_FILE"
+else
+    mv "$NEW_INI_FILE" "$INI_FILE"
+fi
+
 service supervisor start
 EOF
 chmod +x $BUILD_NAME/DEBIAN/postinst
@@ -61,7 +71,7 @@ cp Adafruit_Video_Looper/utils.py              $BUILD_NAME/usr/lib/python3/dist-
 cp Adafruit_Video_Looper/video_looper.py       $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
 
 mkdir -p $BUILD_NAME/opt/lomorage/var
-cp assets/video_looper.ini  $BUILD_NAME/opt/lomorage/var/
+cp assets/video_looper.ini  $BUILD_NAME/$NEW_INI_FILE
 
 mkdir -p $BUILD_NAME/etc/supervisor/conf.d
 cp assets/video_looper.conf $BUILD_NAME/etc/supervisor/conf.d/
