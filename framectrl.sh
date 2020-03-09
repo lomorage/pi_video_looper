@@ -46,6 +46,8 @@ do
     esac
 done
 
+rescan_cmd="sudo killall -SIGUSR1 python3"
+
 frame_off_cmd="vcgencmd display_power 0;sudo service supervisor stop"
 frame_off_job="$MIN_OFF $HOUR_OFF * * * $frame_off_cmd"
 
@@ -87,8 +89,11 @@ case "$1" in
         off)
 	        frame_off
 		;;
+	rescan)
+		eval $rescan_cmd
+		;;
 	*)
-		echo "Usage: $0 { add | remove | on | off } --on-hour [00-23] --on-min [00-59] --off-hour [00-23] --off-min [00-59]" >&2
+		echo "Usage: $0 { add | remove | on | off | rescan } --on-hour [00-23] --on-min [00-59] --off-hour [00-23] --off-min [00-59]" >&2
 		exit 3
 		;;
 esac
