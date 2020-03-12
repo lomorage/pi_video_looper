@@ -29,7 +29,10 @@ EOF
 
 cat << EOF > $BUILD_NAME/DEBIAN/preinst
 #!/bin/bash
-service supervisor stop
+if [ -f "/lib/systemd/system/supervisor.service" ]
+then
+    service supervisor stop
+fi
 EOF
 chmod +x $BUILD_NAME/DEBIAN/preinst
 

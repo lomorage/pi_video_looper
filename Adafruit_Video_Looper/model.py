@@ -166,7 +166,8 @@ class Playlist:
                     f.write('%s\n' % item.filename)
                     if func_progress is not None:
                         func_progress(self._length)
-            os.rename(tmpfile, self.CACHE_FILE)
+            if self._length > 0:
+                os.rename(tmpfile, self.CACHE_FILE)
         except Exception as e:
             logger.error('scan error: %s' % e)
 
