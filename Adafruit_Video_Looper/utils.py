@@ -1,6 +1,7 @@
 import time
 import pygame
 import re
+import subprocess
 
 from .baselog import getlogger
 logger = getlogger(__name__)
@@ -45,3 +46,13 @@ def load_image_fit_screen(imgpath):
     fullimg = pygame.image.load(imgpath)
     img = scale_image(fullimg.convert(), screen_size)
     return img
+
+def is_short_video(videpath):
+    args = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', videpath]
+    p = subprocess.Popen(args , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    try:
+        duration = float(out.strip())
+    except:
+        duration = 0
+    return (duration <= 3)

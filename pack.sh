@@ -22,7 +22,7 @@ Version: $VERSION
 Section: python
 Priority: optional
 Architecture: all
-Depends: python3, python3-pyudev, python3-pygame, supervisor, lomo-omxplayer, ntfs-3g, exfat-fuse
+Depends: python3, python3-pyudev, python3-pygame, supervisor, lomo-omxplayer, ntfs-3g, exfat-fuse, ffmpeg
 Maintainer: Jeromy Fu<fuji246@gmail.com>
 Description: Lomorage Digital Frame
 EOF
@@ -52,7 +52,7 @@ else
     mv "$NEW_INI_FILE" "$INI_FILE"
 fi
 
-/sbin/framectrl.sh add
+sudo -u pi bash -c "/sbin/framectrl.sh add"
 
 service supervisor start
 EOF

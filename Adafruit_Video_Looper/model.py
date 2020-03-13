@@ -10,7 +10,7 @@ import threading
 from typing import Optional
 from enum import Enum
 
-from .utils import timeit, load_image_fit_screen, is_media_type
+from .utils import timeit, load_image_fit_screen, is_media_type, is_short_video
 from .baselog import getlogger
 logger = getlogger(__name__)
 
@@ -208,7 +208,11 @@ class Playlist:
                 asset = self._get_random()
             i += 1
             if self._is_media_type(asset):
-                return asset
+                if is_media_type(asset.filename, self._video_extensions):
+                    if not is_short_video(asset.filename):
+                        return asset
+                else:
+                    return asset
 
         return None
 
