@@ -29,7 +29,8 @@ EOF
 
 cat << EOF > $BUILD_NAME/DEBIAN/preinst
 #!/bin/bash
-if [ -f "/lib/systemd/system/supervisor.service" ]
+systemctl is-active --quiet supervisor
+if [ $? -eq 0 ];
 then
     service supervisor stop
 fi
