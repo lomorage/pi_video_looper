@@ -49,10 +49,16 @@ def load_image_fit_screen(imgpath):
 
 def is_short_video(videpath):
     args = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', videpath]
-    p = subprocess.Popen(args , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(args , stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     out, err = p.communicate()
     try:
         duration = float(out.strip())
     except:
         duration = 0
     return (duration <= 3)
+
+def get_sysinfo():
+    ''' Memory usage in kB '''
+    with open('/proc/self/status') as f:
+        memusage = f.read().split('VmRSS:')[1].split('\n')[0][:-3]
+    return memusage.strip() + " KB"

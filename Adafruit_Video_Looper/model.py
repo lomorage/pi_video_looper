@@ -10,7 +10,7 @@ import threading
 from typing import Optional
 from enum import Enum
 
-from .utils import timeit, load_image_fit_screen, is_media_type, is_short_video
+from .utils import timeit, load_image_fit_screen, is_media_type, is_short_video, get_sysinfo
 from .baselog import getlogger
 logger = getlogger(__name__)
 
@@ -270,6 +270,7 @@ class ResourceLoader:
         if asset in self._threads:
             return asset.loading_status
         else:
+            logger.warn("asset not found in thread")
             return LOAD_FAIL
 
     def _load(self, asset):
@@ -280,7 +281,7 @@ class ResourceLoader:
         self._threads[asset] = t
         t.start()
 
-        logger.info('_load %s' % asset.filename)
+        logger.info('_load (mem: %s) %s' % (get_sysinfo(), asset.filename))
 
     @timeit
     def _do_load(self, asset):
