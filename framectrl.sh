@@ -76,6 +76,22 @@ frame_off() {
 	eval $frame_off_cmd
 }
 
+frame_enable() {
+	if [ -f "/etc/supervisor/conf.d/video_looper.conf.disabled" ]
+	then
+		mv -f /etc/supervisor/conf.d/video_looper.conf.disabled /etc/supervisor/conf.d/video_looper.conf
+	        supervisorctl reload
+        fi
+}
+
+frame_disable() {
+	if [ -f "/etc/supervisor/conf.d/video_looper.conf" ]
+	then
+		mv -f /etc/supervisor/conf.d/video_looper.conf /etc/supervisor/conf.d/video_looper.conf.disabled
+		supervisorctl stop video_looper
+	fi
+}
+
 case "$1" in
         add)
 		add_job
@@ -88,6 +104,12 @@ case "$1" in
 		;;
         off)
 	        frame_off
+		;;
+	enable)
+		frame_enable
+		;;
+	disable)
+		frame_disable
 		;;
 	rescan)
 		eval $rescan_cmd

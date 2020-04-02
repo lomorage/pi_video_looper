@@ -29,8 +29,7 @@ EOF
 
 cat << EOF > $BUILD_NAME/DEBIAN/preinst
 #!/bin/bash
-systemctl is-active --quiet supervisor
-if [ $? -eq 0 ];
+if [ -f "/lib/systemd/system/supervisor.service" ]
 then
     service supervisor stop
 fi
@@ -53,8 +52,7 @@ else
     mv "$NEW_INI_FILE" "$INI_FILE"
 fi
 
-sudo -u pi bash -c "/sbin/framectrl.sh add"
-
+#sudo -u pi bash -c "/sbin/framectrl.sh add"
 service supervisor start
 EOF
 chmod +x $BUILD_NAME/DEBIAN/postinst

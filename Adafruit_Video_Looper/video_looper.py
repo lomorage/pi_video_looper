@@ -288,7 +288,7 @@ class VideoLooper:
         self._screen.blit(label, (sw/2-lw/2, sh/2-lh/2))
         # If keyboard control is enabled, display message about it
         if self._keyboard_control:
-            label2 = self._render_text('press ESC to quit')
+            label2 = self._render_text('Press "r" to reload, or press "ESC" then "Ctrl+Alt+F2" to quit to terminal')
             l2w, l2h = label2.get_size()
             self._screen.blit(label2, (sw/2-l2w/2, sh/2-l2h/2+lh))
         pygame.display.update()

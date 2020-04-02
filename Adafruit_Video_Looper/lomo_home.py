@@ -30,7 +30,7 @@ class LomoReader:
 
     def idle_message(self):
         """Return a message to display when idle and no files are found."""
-        return 'no media files found in %s' % self._mount_path
+        return 'No media files found, please connect hard drive first'
 
 def create_file_reader(config, screen):
     """Create new file reader based on lomorage home directory mounted."""
