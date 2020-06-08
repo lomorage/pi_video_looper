@@ -35,6 +35,8 @@ class DirectoryReader:
     def count_files(self):
         return len(os.listdir(self._path))
 
+    def has_watchdog(self):
+        return False
 
 def create_file_reader(config, screen):
     """Create new file reader based on reading a directory on disk."""

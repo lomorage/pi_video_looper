@@ -194,34 +194,34 @@ class VideoLooper:
         """Search all the file reader paths for media files with the provided
         extensions.
         """
-        if not self._force_rescan_playlist and Playlist.cacheFileExists():
-            playlist = Playlist.from_cache(self._config)
+        paths = self._reader.search_paths()
+        for path in paths:
+            # Skip paths that don't exist or are files.
+            if not os.path.exists(path) or not os.path.isdir(path):
+                continue
+
+            # Get the ALSA hardware volume from the file in the usb key
+            if self._alsa_hw_vol_file:
+                alsa_hw_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._alsa_hw_vol_file)
+                if os.path.exists(alsa_hw_vol_file_path):
+                    with open(alsa_hw_vol_file_path, 'r') as alsa_hw_vol_file:
+                        alsa_hw_vol_string = alsa_hw_vol_file.readline()
+                        self._alsa_hw_vol = alsa_hw_vol_string
+
+            # Get the video volume from the file in the usb key
+            sound_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._sound_vol_file)
+            if os.path.exists(sound_vol_file_path):
+                with open(sound_vol_file_path, 'r') as sound_file:
+                    sound_vol_string = sound_file.readline()
+                    if self._is_number(sound_vol_string):
+                        self._sound_vol = int(float(sound_vol_string))
+
+        if self._reader.has_watchdog:
+            playlist = Playlist.from_watch_paths(paths, self._extensions, self._config)
         else:
-            # Get list of paths to search from the file reader.
-            paths = self._reader.search_paths()
-            for path in paths:
-                # Skip paths that don't exist or are files.
-                if not os.path.exists(path) or not os.path.isdir(path):
-                    continue
-
-                # Get the ALSA hardware volume from the file in the usb key
-                if self._alsa_hw_vol_file:
-                    alsa_hw_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._alsa_hw_vol_file)
-                    if os.path.exists(alsa_hw_vol_file_path):
-                        with open(alsa_hw_vol_file_path, 'r') as alsa_hw_vol_file:
-                            alsa_hw_vol_string = alsa_hw_vol_file.readline()
-                            self._alsa_hw_vol = alsa_hw_vol_string
-
-                # Get the video volume from the file in the usb key
-                sound_vol_file_path = '{0}/{1}'.format(path.rstrip('/'), self._sound_vol_file)
-                if os.path.exists(sound_vol_file_path):
-                    with open(sound_vol_file_path, 'r') as sound_file:
-                        sound_vol_string = sound_file.readline()
-                        if self._is_number(sound_vol_string):
-                            self._sound_vol = int(float(sound_vol_string))
-
-            # Create a playlist with the sorted list of media assets.
-            playlist = Playlist.from_paths(paths, self._extensions, self._config)
+            if self._force_rescan_playlist:
+                Playlist.removeCacheFile()
+            playlist = Playlist.from_cache_paths(paths, self._extensions, self._config)
 
         playlist.load(lambda c: self.display_message('loading %d assets...' % c))
         return playlist

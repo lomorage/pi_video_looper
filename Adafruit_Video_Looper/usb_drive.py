@@ -40,6 +40,8 @@ class USBDriveReader:
         """Return a message to display when idle and no files are found."""
         return 'Insert USB drive with compatible movies.'
 
+    def has_watchdog(self):
+        return False
 
 def create_file_reader(config, screen):
     """Create new file reader based on mounting USB drives."""

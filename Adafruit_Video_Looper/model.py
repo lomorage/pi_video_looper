@@ -9,6 +9,8 @@ import pygame
 import threading
 from typing import Optional
 from enum import Enum
+from watchdog.observers.polling import PollingObserver
+from watchdog import events
 
 from .utils import timeit, load_image_fit_screen, is_media_type, is_short_video, get_sysinfo
 from .baselog import getlogger
@@ -103,30 +105,105 @@ def cacheIter(cachfile):
     except Exception as e:
         logger.error('iterate %s error: %s' % (cachfile, e))
 
+class WatchDogWrapIter(events.FileSystemEventHandler):
+
+    def __init__(self, it, paths):
+        self.it, self.backup_it = itertools.tee(it)
+        self.added = []
+        self.removed = []
+        self.already_added = []
+        self.observer = PollingObserver()
+        for path in paths:
+            self.observer.schedule(self, path, recursive=True)
+        self.observer.start()
+
+    def __del__(self):
+        self.observer.stop()
+        self.observer.join()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if len(self.added) > 0:
+            return self.added.pop()
+        else:
+            while True:
+                newround = False # avoid infinite loop
+                item = next(self.it)
+                if item is not None:
+                    if item not in self.removed:
+                        return item
+                else:
+                    if not newround:
+                        # Wrap around to the start after finishing.
+                        self.it, self.backup_it = itertools.tee(self.backup_it)
+                        self.it = itertools.chain(self.already_added, self.it)
+                        newround = True
+                    else:
+                        return None
+
+    def on_created(self, event):
+        logger.info('watchdog add %s' % event.src_path)
+        asset = getMediaAsset(event.src_path)
+        self.removed.remove(asset)
+        self.added.append(asset)
+        self.already_added.append(asset)
+
+    def on_deleted(self, event):
+        logger.info('watchdog del %s' % event.src_path)
+        asset = getMediaAsset(event.src_path)
+        self.added.remove(asset)
+        self.already_added.remove(asset)
+        self.removed.append(asset)
+
+class WrapIter(object):
+
+    def __init__(self, it):
+        self.it, self.backup_it = itertools.tee(it)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        asset = next(self.it, None)
+        if asset is None:
+            # Wrap around to the start after finishing.
+            self.it, self.backup_it = itertools.tee(self.backup_it)
+            asset = next(self.it, None)
+        return asset
+
 class Playlist:
     """Representation of a playlist of movies."""
 
     CACHE_FILE = '/opt/lomorage/var/lomo-playlist.txt'
 
     @staticmethod
+    def removeCacheFile():
+        return os.remove(Playlist.CACHE_FILE)
+
+    @staticmethod
     def cacheFileExists():
         return os.path.exists(Playlist.CACHE_FILE)
 
     @classmethod
-    def from_paths(cls, media_paths, extensions, config):
-        return cls(fileSystemMediaIter(media_paths, extensions), config)
+    def from_cache_paths(cls, media_paths, extensions, config):
+        if Playlist.cacheFileExists():
+            return cls(WrapIter(cacheIter(Playlist.CACHE_FILE)), config, False)
+        else:
+            return cls(WrapIter(fileSystemMediaIter(media_paths, extensions)), config)
 
     @classmethod
     def from_list(cls, media_list, config):
-        return cls(mediaListIter(media_list), config)
+        return cls(WrapIter(mediaListIter(media_list)), config)
 
     @classmethod
-    def from_cache(cls, config):
-        return cls(cacheIter(Playlist.CACHE_FILE), config, False)
+    def from_watch_paths(cls, media_paths, extensions, config):
+        return cls(WatchDogWrapIter(fileSystemMediaIter(media_paths, extensions), media_paths), config, False)
 
     def __init__(self, assets_iter, config, scan=True):
         """Create a playlist from the provided list of media assets iterator."""
-        self._assets_iter, self._backup_iter = itertools.tee(assets_iter)
+        self._assets_iter = assets_iter
         self._force_scan = scan
         self._media_type = config.get('playlist', 'media_type').upper()
         assert self._media_type in MediaType.__members__.keys(), 'Unknown media type value: {0} Expected video, image or all.'.format(self._media_type)
@@ -173,10 +250,6 @@ class Playlist:
 
     def _get_next(self) -> MediaAsset:
         asset = next(self._assets_iter, None)
-        if asset is None:
-            # Wrap around to the start after finishing.
-            self._assets_iter, self._backup_iter = itertools.tee(self._backup_iter)
-            asset = next(self._assets_iter, None)
         return asset
 
     def _get_random(self) -> MediaAsset:
