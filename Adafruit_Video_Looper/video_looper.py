@@ -81,6 +81,7 @@ class VideoLooper:
         self._screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN | pygame.NOFRAME)
         self._size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
         self._bgimage = self._load_bgimage()
+        self._qrimage = self._load_qrimage()
         self._blank_screen()
         # Load configured video player and file reader modules.
         self._player = self._load_player()
@@ -138,6 +139,17 @@ class VideoLooper:
                 self._print('Using ' + str(imagepath) + ' as a background')
                 image = pygame.image.load(imagepath)
                 image = pygame.transform.scale(image, self._size)
+        return image
+
+    def _load_qrimage(self):
+        """Load the QRCode image and return an instance of it."""
+        image = None
+        if self._config.has_option('video_looper', 'qrimage'):
+            imagepath = self._config.get('video_looper', 'qrimage')
+            if imagepath != "" and os.path.isfile(imagepath):
+                self._print('Using ' + str(imagepath) + ' as a QRCode image')
+                image = pygame.image.load(imagepath)
+                #image = pygame.transform.scale(image, self._size)
         return image
 
     def _is_number(self, s):
@@ -285,12 +297,27 @@ class VideoLooper:
         lw, lh = label.get_size()
         sw, sh = self._screen.get_size()
         self._screen.fill(self._bgcolor)
-        self._screen.blit(label, (sw/2-lw/2, sh/2-lh/2))
+
         # If keyboard control is enabled, display message about it
+        l2w = l2h = 0
         if self._keyboard_control:
             label2 = self._render_text('Press "r" to reload, or press "ESC" then "Ctrl+Alt+F2" to quit to terminal')
             l2w, l2h = label2.get_size()
-            self._screen.blit(label2, (sw/2-l2w/2, sh/2-l2h/2+lh))
+        iw = ih = 0
+        if self._qrimage is not None:
+            iw, ih = self._qrimage.get_rect().size
+
+        gap = 50
+        total_h = lh + l2h + ih + 2 * gap
+        if total_h > sh:
+            return
+        start_h = sh/2 - total_h/2
+        self._screen.blit(label, (sw/2-lw/2, start_h))
+        if self._keyboard_control:
+            self._screen.blit(label2, (sw/2-l2w/2, start_h + lh + gap))
+        if self._qrimage is not None:
+            self._screen.blit(self._qrimage, (sw/2-iw/2, start_h + lh + 2*gap + l2h))
+
         pygame.display.update()
 
     def display_message(self,message):
