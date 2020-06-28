@@ -13,7 +13,7 @@ import time
 import pygame
 import threading
 
-from .model import Playlist, ResourceLoader, LOAD_PENDING, LOAD_SUCC, LOAD_FAIL
+from .model import CacheFilePlayList, WatchDogPlaylist, ResourceLoader, LOAD_PENDING, LOAD_SUCC, LOAD_FAIL
 from .alsa_config import parse_hw_device
 from .playlist_builders import build_playlist_m3u
 
@@ -175,7 +175,7 @@ class VideoLooper:
                     paths = self._reader.search_paths()
                     
                     if not paths:
-                        return Playlist([])
+                        return self._build_playlist_from_all_files()
                     
                     for path in paths:
                         maybe_playlist_path = os.path.join(path, playlist_path)
@@ -228,12 +228,12 @@ class VideoLooper:
                     if self._is_number(sound_vol_string):
                         self._sound_vol = int(float(sound_vol_string))
 
-        if self._reader.has_watchdog:
-            playlist = Playlist.from_watch_paths(paths, self._extensions, self._config)
+        if self._reader.enable_watchdog:
+            playlist = WatchDogPlaylist(paths, self._extensions, self._config)
         else:
+            playlist = CacheFilePlayList(paths, self._extensions, self._config)
             if self._force_rescan_playlist:
-                Playlist.removeCacheFile()
-            playlist = Playlist.from_cache_paths(paths, self._extensions, self._config)
+                playlist.reload()
 
         playlist.load(lambda c: self.display_message('loading %d assets...' % c))
         return playlist

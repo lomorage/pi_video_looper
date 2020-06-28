@@ -105,6 +105,20 @@ def cacheIter(cachfile):
     except Exception as e:
         logger.error('iterate %s error: %s' % (cachfile, e))
 
+def random_sample(iter, k):
+    '''
+    Reservoir sampling
+    '''
+    sample = []
+    for n, item in enumerate(iter):
+        if n < k:
+            sample.append(item)
+        else:
+            r = random.randint(0, n)
+            if r < k:
+                sample[r] = item
+    return sample
+
 class WatchDogWrapIter(events.FileSystemEventHandler):
 
     def __init__(self, it, paths):
@@ -114,8 +128,23 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
         self.already_added = []
         self.observer = PollingObserver()
         for path in paths:
-            self.observer.schedule(self, path, recursive=True)
+            if os.path.exists(path):
+                self.observer.schedule(self, path, recursive=True)
         self.observer.start()
+
+    def count(self):
+        # len will change iterator position, so copy another one
+        it, self.backup_it = itertools.tee(self.backup_it)
+        return len(list(it)) + len(self.already_added) - len(self.removed)
+
+    def random(self):
+        self.it, self.backup_it = itertools.tee(self.backup_it)
+        self.it = itertools.chain(self.it, self.already_added)
+        sample = random_sample(self.it, 1)
+        if len(sample) > 0:
+            return sample[0]
+        else:
+            return None
 
     def __del__(self):
         self.observer.stop()
@@ -128,9 +157,13 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
         if len(self.added) > 0:
             return self.added.pop()
         else:
+            newround = False # avoid infinite loop
             while True:
-                newround = False # avoid infinite loop
-                item = next(self.it)
+                logger.debug('WatchDogWrapIter, while loop, check item...')
+                try:
+                    item = next(self.it)
+                except StopIteration:
+                    item = None
                 if item is not None:
                     if item not in self.removed:
                         return item
@@ -140,22 +173,36 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
                         self.it, self.backup_it = itertools.tee(self.backup_it)
                         self.it = itertools.chain(self.already_added, self.it)
                         newround = True
+                        logger.debug('WatchDogWrapIter, new round')
                     else:
+                        logger.debug('WatchDogWrapIter, cannot find item')
                         return None
 
     def on_created(self, event):
         logger.info('watchdog add %s' % event.src_path)
         asset = getMediaAsset(event.src_path)
-        self.removed.remove(asset)
-        self.added.append(asset)
-        self.already_added.append(asset)
+        while self.removed.count(asset):
+            self.removed.remove(asset)
+        if not self.added.count(asset):
+            self.added.append(asset)
+        if not self.already_added.count(asset):
+            self.already_added.append(asset)
+        self._print_stats()
 
     def on_deleted(self, event):
         logger.info('watchdog del %s' % event.src_path)
         asset = getMediaAsset(event.src_path)
-        self.added.remove(asset)
-        self.already_added.remove(asset)
-        self.removed.append(asset)
+        while self.added.count(asset):
+            self.added.remove(asset)
+        while self.already_added.count(asset):
+            self.already_added.remove(asset)
+        if not self.removed.count(asset):
+            self.removed.append(asset)
+        self._print_stats()
+
+    def _print_stats(self):
+        output = 'added: %d, already_added: %d, removed: %d' % (len(self.added), len(self.already_added), len(self.removed))
+        logger.info(output)
 
 class WrapIter(object):
 
@@ -173,38 +220,22 @@ class WrapIter(object):
             asset = next(self.it, None)
         return asset
 
-class Playlist:
-    """Representation of a playlist of movies."""
+    def count(self):
+        it, self.backup_it = itertools.tee(self.backup_it)
+        return len(list(it))
 
-    CACHE_FILE = '/opt/lomorage/var/lomo-playlist.txt'
-
-    @staticmethod
-    def removeCacheFile():
-        return os.remove(Playlist.CACHE_FILE)
-
-    @staticmethod
-    def cacheFileExists():
-        return os.path.exists(Playlist.CACHE_FILE)
-
-    @classmethod
-    def from_cache_paths(cls, media_paths, extensions, config):
-        if Playlist.cacheFileExists():
-            return cls(WrapIter(cacheIter(Playlist.CACHE_FILE)), config, False)
+    def random(self):
+        self.it, self.backup_it = itertools.tee(self.backup_it)
+        sample = random_sample(self.it, 1)
+        if len(sample) > 0:
+            return sample[0]
         else:
-            return cls(WrapIter(fileSystemMediaIter(media_paths, extensions)), config)
+            return None
 
-    @classmethod
-    def from_list(cls, media_list, config):
-        return cls(WrapIter(mediaListIter(media_list)), config)
+class PlaylistBase(object):
 
-    @classmethod
-    def from_watch_paths(cls, media_paths, extensions, config):
-        return cls(WatchDogWrapIter(fileSystemMediaIter(media_paths, extensions), media_paths), config, False)
-
-    def __init__(self, assets_iter, config, scan=True):
+    def __init__(self, config):
         """Create a playlist from the provided list of media assets iterator."""
-        self._assets_iter = assets_iter
-        self._force_scan = scan
         self._media_type = config.get('playlist', 'media_type').upper()
         assert self._media_type in MediaType.__members__.keys(), 'Unknown media type value: {0} Expected video, image or all.'.format(self._media_type)
         self._media_type = MediaType.__members__[self._media_type]
@@ -223,75 +254,145 @@ class Playlist:
         else:
             return False
 
+    def reload(self, func_progress=None):
+        pass
+
     def load(self, func_progress=None):
-        if self._force_scan:
-            self._scan(func_progress)
-        else:
-            self._length = len(list(self._assets_iter))
-
-        if func_progress is not None:
-            func_progress(self._length)
-
-    @timeit
-    def _scan(self, func_progress):
-        self._length = 0
-        try:
-            tmpfile = self.CACHE_FILE + ".tmp"
-            with open(tmpfile, 'w') as f:
-                for item in self._assets_iter:
-                    self._length += 1
-                    f.write('%s\n' % item.filename)
-                    if func_progress is not None:
-                        func_progress(self._length)
-            if self._length > 0:
-                os.rename(tmpfile, self.CACHE_FILE)
-        except Exception as e:
-            logger.error('scan error: %s' % e)
+        pass
 
     def _get_next(self) -> MediaAsset:
-        asset = next(self._assets_iter, None)
-        return asset
+        return None
 
     def _get_random(self) -> MediaAsset:
-        # see http://metadatascience.com/2014/02/27/random-sampling-from-very-large-files/
-        try:
-            with open(self.CACHE_FILE, 'r') as f:
-                f.seek(0, 2)
-                filesize = f.tell()
-                pos = random.randint(0, filesize)
-                f.seek(pos)
-                f.readline() # skip current line
-                if f.tell() == filesize:
-                    # already last line, rewind
-                    f.seek(0)
-                filepath = f.readline().rstrip()
-                return getMediaAsset(filepath)
-        except Exception as e:
-            logger.error('_get_random %s error: %s' % (self.CACHE_FILE, e))
+        return None
 
     def get_next(self, is_random) -> MediaAsset:
         """Get the next asset in the playlist. Will loop to start of playlist
         after reaching end.
         """
-        i = 0
-        while i < self._length:
+        while True:
             if not is_random:
                 asset = self._get_next()
             else:
                 asset = self._get_random()
-            i += 1
-            if self._is_media_type(asset):
+
+            if asset is None:
+                return None
+            elif self._is_media_type(asset):
                 if is_media_type(asset.filename, self._video_extensions):
                     if not is_short_video(asset.filename):
                         return asset
                 else:
                     return asset
+            else:
+                logger.info('ingore %s' % asset)
 
         return None
 
     def length(self):
-        """Return the number of movies in the playlist."""
+        pass
+
+
+class SimplePlaylist(PlaylistBase):
+
+    def __init__(self, media_list, config):
+        super().__init__(config)
+        self._wrap_asset_iter = WrapIter(mediaListIter(media_list))
+
+    def load(self, func_progress=None):
+        self._length = self._wrap_asset_iter.count()
+
+        if func_progress is not None:
+            func_progress(self._length)
+
+    def _get_next(self) -> MediaAsset:
+        return next(self._wrap_asset_iter)
+
+    def _get_random(self) -> MediaAsset:
+        return self._wrap_asset_iter.random()
+
+    def length(self):
         return self._length
+
+
+class CacheFilePlayList(PlaylistBase):
+
+    def removeCacheFile(self):
+        if self.cacheFileExists():
+            logger.info("remove cache file %s" % self.cache_file_path)
+            os.remove(self.cache_file_path)
+
+    def cacheFileExists(self):
+        return os.path.exists(self.cache_file_path)
+
+    def __init__(self, media_paths, extensions, config):
+        super().__init__(config)
+        self.cache_file_path = config.get('playlist', 'cache_path', fallback='/tmp/playlist.txt')
+        self.media_paths = media_paths
+        self.extensions = extensions
+        if self.cacheFileExists():
+            self._wrap_asset_iter = WrapIter(cacheIter(self.cache_file_path))
+        else:
+            self._wrap_asset_iter = WrapIter(fileSystemMediaIter(media_paths, extensions))
+
+    def reload(self, func_progress=None):
+        self.removeCacheFile()
+        self._wrap_asset_iter = WrapIter(fileSystemMediaIter(self.media_paths, self.extensions))
+        self._scan(func_progress)
+
+    def load(self, func_progress=None):
+        if not self.cacheFileExists():
+            self._scan(func_progress)
+        else:
+            self._length = self._wrap_asset_iter.count()
+            if func_progress is not None:
+                func_progress(self._length)
+
+    def _get_next(self) -> MediaAsset:
+        return next(self._wrap_asset_iter)
+
+    def _get_random(self) -> MediaAsset:
+        return self._wrap_asset_iter.random()
+
+    def length(self):
+        return self._length
+
+    @timeit
+    def _scan(self, func_progress):
+        self._length = 0
+        try:
+            tmpfile = self.cache_file_path + ".tmp"
+            with open(tmpfile, 'w') as f:
+                for item in self._wrap_asset_iter.it:
+                    self._length += 1
+                    f.write('%s\n' % item.filename)
+                    if func_progress is not None:
+                        func_progress(self._length)
+            if self._length > 0:
+                os.rename(tmpfile, self.cache_file_path)
+                logger.info("scan done, create playlist file %s" % self.cache_file_path)
+        except Exception as e:
+            logger.error('scan error: %s' % e)
+
+
+class WatchDogPlaylist(PlaylistBase):
+
+    def __init__(self, media_paths, extensions, config):
+        super().__init__(config)
+        self._wrap_asset_iter = WatchDogWrapIter(fileSystemMediaIter(media_paths, extensions), media_paths)
+
+    def load(self, func_progress=None):
+        if func_progress is not None:
+            func_progress(self.length())
+
+    def _get_next(self) -> MediaAsset:
+        return next(self._wrap_asset_iter)
+
+    def _get_random(self) -> MediaAsset:
+        return self._wrap_asset_iter.random()
+
+    def length(self):
+        return self._wrap_asset_iter.count()
 
 
 class ResourceLoader:
@@ -373,19 +474,3 @@ class ResourceLoader:
         except Exception as e:
             logger.error('error _do_load %s: %s' % (asset.filename, e))
             asset.loading_status = LOAD_FAIL
-
-
-if __name__ == '__main__':
-    import configparser
-    config = configparser.ConfigParser().read("../assets/video_looper.ini")
-    l = Playlist.from_paths('.', 'py', config)
-    for i in range(l.length()):
-        print(l.get_next(False).filename)
-
-    l = Playlist.from_list([getMediaAsset('file1')], config)
-    print(l.get_next(True))
-
-    l = Playlist.from_list([getMediaAsset(r) for r in ['file1', 'file2']], config)
-    print(l.get_next(True))
-    print(l.get_next(True))
-    print(l.get_next(True))

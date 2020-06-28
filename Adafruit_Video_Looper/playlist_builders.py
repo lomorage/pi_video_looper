@@ -2,7 +2,7 @@ import os
 import re
 import urllib.parse
 
-from .model import Playlist, MediaAsset
+from .model import SimplePlaylist, MediaAsset
 
 
 def build_playlist_m3u(playlist_path: str, config):
@@ -25,4 +25,4 @@ def build_playlist_m3u(playlist_path: str, config):
                 media_list.append(MediaAsset(path, title))
                 title = None
 
-    return Playlist.from_list(media_list, config)
+    return SimplePlaylist(media_list, config)

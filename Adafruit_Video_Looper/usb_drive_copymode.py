@@ -230,7 +230,7 @@ class USBDriveReaderCopy(object):
         """Return a message to display when idle and no files are found."""
         return 'Insert USB drive with compatible movies. Copy Mode: files will be copied to RPi.'
 
-    def has_watchdog(self):
+    def enable_watchdog(self):
         return False
 
 def create_file_reader(config, screen):

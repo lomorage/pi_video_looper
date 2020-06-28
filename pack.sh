@@ -33,17 +33,27 @@ if [ -f "/lib/systemd/system/supervisor.service" ]
 then
     service supervisor stop
 fi
+
+if [ -f "/opt/lomorage/var/lomo-frame.log" ]
+then
+    rm -f /opt/lomorage/var/lomo-frame.log
+fi
+
+if [ -d "/opt/lomorage/lib/lib" ]
+then
+    rm -rf /opt/lomorage/lib/lib
+fi
 EOF
 chmod +x $BUILD_NAME/DEBIAN/preinst
 
 cat << EOF > $BUILD_NAME/DEBIAN/postinst
 #!/bin/bash
-ln -sf /opt/lomorage/lib/lib/libde265.so.0.0.12 /opt/lomorage/lib/lib/libde265.so
-ln -sf /opt/lomorage/lib/lib/libde265.so.0.0.12 /opt/lomorage/lib/lib/libde265.so.0
-ln -sf /opt/lomorage/lib/lib/libheif.so.1.6.2 /opt/lomorage/lib/lib/libheif.so
-ln -sf /opt/lomorage/lib/lib/libheif.so.1.6.2 /opt/lomorage/lib/lib/libheif.so.1
-ln -sf /opt/lomorage/lib/lib/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lib/libSDL_image.so
-ln -sf /opt/lomorage/lib/lib/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lib/libSDL_image-1.2.so.0
+ln -sf /opt/lomorage/lib/lomoframe/libde265.so.0.0.12        /opt/lomorage/lib/lomoframe/libde265.so
+ln -sf /opt/lomorage/lib/lomoframe/libde265.so.0.0.12        /opt/lomorage/lib/lomoframe/libde265.so.0
+ln -sf /opt/lomorage/lib/lomoframe/libheif.so.1.6.2          /opt/lomorage/lib/lomoframe/libheif.so
+ln -sf /opt/lomorage/lib/lomoframe/libheif.so.1.6.2          /opt/lomorage/lib/lomoframe/libheif.so.1
+ln -sf /opt/lomorage/lib/lomoframe/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lomoframe/libSDL_image.so
+ln -sf /opt/lomorage/lib/lomoframe/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/lomoframe/libSDL_image-1.2.so.0
 
 if [ -f "$INI_FILE" ]; then
     echo "difference of configuration:"
@@ -86,19 +96,17 @@ cp assets/video_looper.conf $BUILD_NAME/etc/supervisor/conf.d/
 mkdir -p $BUILD_NAME/etc/cron.weekly
 cp rescan.sh $BUILD_NAME/etc/cron.weekly/
 
-mkdir -p $BUILD_NAME/opt/lomorage/lib/lib
+mkdir -p $BUILD_NAME/opt/lomorage/lib/lomoframe
 
-cp deps/arm/libde265.a         $BUILD_NAME/opt/lomorage/lib/lib/
-cp deps/arm/libde265.la        $BUILD_NAME/opt/lomorage/lib/lib/
-cp deps/arm/libde265.so.0.0.12 $BUILD_NAME/opt/lomorage/lib/lib/
-
-cp deps/arm/libheif.a          $BUILD_NAME/opt/lomorage/lib/lib/
-cp deps/arm/libheif.la         $BUILD_NAME/opt/lomorage/lib/lib/
-cp deps/arm/libheif.so.1.6.2   $BUILD_NAME/opt/lomorage/lib/lib/
-
-cp deps/arm/libSDL_image.a                $BUILD_NAME/opt/lomorage/lib/lib/
-cp deps/arm/libSDL_image.la               $BUILD_NAME/opt/lomorage/lib/lib/
-cp deps/arm/libSDL_image-1.2.so.0.8.4     $BUILD_NAME/opt/lomorage/lib/lib/
+cp deps/arm/libde265.a                    $BUILD_NAME/opt/lomorage/lib/lomoframe/
+cp deps/arm/libde265.la                   $BUILD_NAME/opt/lomorage/lib/lomoframe/
+cp deps/arm/libde265.so.0.0.12            $BUILD_NAME/opt/lomorage/lib/lomoframe/
+cp deps/arm/libheif.a                     $BUILD_NAME/opt/lomorage/lib/lomoframe/
+cp deps/arm/libheif.la                    $BUILD_NAME/opt/lomorage/lib/lomoframe/
+cp deps/arm/libheif.so.1.6.2              $BUILD_NAME/opt/lomorage/lib/lomoframe/
+cp deps/arm/libSDL_image.a                $BUILD_NAME/opt/lomorage/lib/lomoframe/
+cp deps/arm/libSDL_image.la               $BUILD_NAME/opt/lomorage/lib/lomoframe/
+cp deps/arm/libSDL_image-1.2.so.0.8.4     $BUILD_NAME/opt/lomorage/lib/lomoframe/
 
 chown root:root -R $BUILD_NAME
 dpkg -b $BUILD_NAME

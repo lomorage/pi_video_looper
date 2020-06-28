@@ -35,7 +35,7 @@ class DirectoryReader:
     def count_files(self):
         return len(os.listdir(self._path))
 
-    def has_watchdog(self):
+    def enable_watchdog(self):
         return False
 
 def create_file_reader(config, screen):
