@@ -1,5 +1,7 @@
 import glob
 import os
+from .baselog import getlogger
+logger = getlogger(__name__)
 
 class LomoReader:
     
@@ -10,12 +12,16 @@ class LomoReader:
         self._load_config(config)
         self._enable_watchdog = False
 
+    def _any_path_exists(self, paths):
+        return any([os.path.exists(item) for item in paths])
+
     def _load_config(self, config):
         # mount path like "/media/WD_90C27F73C27F5C82:/media/SanDisk_ADFCEE"
         self._mount_path = config.get('lomorage', 'mount_path').split(':')
-        self._mount_share_path = config.get('lomorage', 'mount_share_path')
-        self._mount_path_exists = os.path.exists(self._mount_path)
-        self._mount_share_path_exists = os.path.exists(self._mount_share_path)
+        self._mount_share_path = config.get('lomorage', 'mount_share_path').split(':')
+        logger.info("loading mount_path: %s, mount_share_path: %s" % (self._mount_path, self._mount_share_path))
+        self._mount_path_exists = self._any_path_exists(self._mount_path)
+        self._mount_share_path_exists = self._any_path_exists(self._mount_share_path)
 
     def search_paths(self):
         """Return a list of paths to search for files. Will return a list of all
@@ -25,9 +31,10 @@ class LomoReader:
         """
         spaths = []
 
-        if os.path.exists(self._mount_share_path):
-            spaths.append(self._mount_share_path)
+        if self._any_path_exists(self._mount_share_path):
             self._enable_watchdog = True
+            for mpath in self._mount_share_path:
+                spaths.extend(glob.glob(mpath))
         else:
             self._enable_watchdog = False
             for mpath in self._mount_path:
@@ -41,8 +48,10 @@ class LomoReader:
         2. if we don't have share path, if media path changed, we need update playlist
         3. if we have share path changed, we should update playlist anyway
         """
-        mount_path_exists = os.path.exists(self._mount_path)
-        mount_share_path_exists = os.path.exists(self._mount_share_path)
+        #print('old mount_path_exists: %s, mount_share_path_exists: %s' % (self._mount_path_exists, self._mount_share_path_exists))
+        mount_path_exists = self._any_path_exists(self._mount_path)
+        mount_share_path_exists = self._any_path_exists(self._mount_share_path)
+        #print('new mount_path_exists: %s, mount_share_path_exists: %s' % (mount_path_exists, mount_share_path_exists))
 
         changed = False
         if mount_share_path_exists != self._mount_share_path_exists:
