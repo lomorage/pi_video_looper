@@ -13,7 +13,10 @@ class LomoReader:
         self._enable_watchdog = False
 
     def _any_path_exists(self, paths):
-        return any([os.path.exists(item) for item in paths])
+        spaths = []
+        for mpath in paths:
+            spaths.extend(glob.glob(mpath))
+        return any([os.path.exists(item) for item in spaths])
 
     def _load_config(self, config):
         # mount path like "/media/WD_90C27F73C27F5C82:/media/SanDisk_ADFCEE"
@@ -43,10 +46,7 @@ class LomoReader:
 
     def is_changed(self):
         """Check if any changes on existence of mount path and mount share path,
-        will prefer media share path over media path, that is:
-        1. if we have share path, then use it, don't care whether media path exists or not
-        2. if we don't have share path, if media path changed, we need update playlist
-        3. if we have share path changed, we should update playlist anyway
+        will prefer media share path over media path
         """
         #print('old mount_path_exists: %s, mount_share_path_exists: %s' % (self._mount_path_exists, self._mount_share_path_exists))
         mount_path_exists = self._any_path_exists(self._mount_path)
@@ -54,9 +54,12 @@ class LomoReader:
         #print('new mount_path_exists: %s, mount_share_path_exists: %s' % (mount_path_exists, mount_share_path_exists))
 
         changed = False
+
+        # if share path changes, we need reload
         if mount_share_path_exists != self._mount_share_path_exists:
             changed = True
 
+        # if home path found, if we have share path, ignore, otherwise need reload
         if mount_path_exists != self._mount_path_exists and not mount_share_path_exists:
             changed = True
 

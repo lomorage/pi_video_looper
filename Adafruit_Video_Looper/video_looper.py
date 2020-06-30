@@ -228,7 +228,7 @@ class VideoLooper:
                     if self._is_number(sound_vol_string):
                         self._sound_vol = int(float(sound_vol_string))
 
-        if self._reader.enable_watchdog:
+        if self._reader.enable_watchdog():
             playlist = WatchDogPlaylist(paths, self._extensions, self._config)
         else:
             playlist = CacheFilePlayList(paths, self._extensions, self._config)

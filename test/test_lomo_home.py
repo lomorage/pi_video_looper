@@ -13,6 +13,16 @@ class TestLomoHomeReader(unittest.TestCase):
         config.read("test/video_looper.ini")
         self.reader = create_file_reader(config, None)
 
+    def test_search_paths_home_glob(self):
+        config = configparser.ConfigParser()
+        config.read("test/video_looper.ini")
+        config['lomorage']['mount_path'] = 'test/media/ho*'
+        self.reader = create_file_reader(config, None)
+        searchPaths = self.reader.search_paths()
+        self.assertEqual(len(searchPaths), 1)
+        self.assertEqual(searchPaths[0], 'test/media/home')
+        self.assertFalse(self.reader.enable_watchdog())
+
     def test_search_paths_home(self):
         searchPaths = self.reader.search_paths()
         self.assertEqual(len(searchPaths), 1)
