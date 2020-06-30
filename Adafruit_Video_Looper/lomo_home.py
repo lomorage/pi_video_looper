@@ -11,6 +11,8 @@ class LomoReader:
         """
         self._load_config(config)
         self._enable_watchdog = False
+        self._mount_path_exists = False
+        self._mount_share_path_exists = False
 
     def _any_path_exists(self, paths):
         spaths = []
@@ -22,9 +24,9 @@ class LomoReader:
         # mount path like "/media/WD_90C27F73C27F5C82:/media/SanDisk_ADFCEE"
         self._mount_path = config.get('lomorage', 'mount_path').split(':')
         self._mount_share_path = config.get('lomorage', 'mount_share_path').split(':')
-        logger.info("loading mount_path: %s, mount_share_path: %s" % (self._mount_path, self._mount_share_path))
         self._mount_path_exists = self._any_path_exists(self._mount_path)
         self._mount_share_path_exists = self._any_path_exists(self._mount_share_path)
+        logger.info("loading mount_path: %s, mount_share_path: %s" % (self._mount_path, self._mount_share_path))
 
     def search_paths(self):
         """Return a list of paths to search for files. Will return a list of all
@@ -63,7 +65,7 @@ class LomoReader:
         if mount_path_exists != self._mount_path_exists and not mount_share_path_exists:
             changed = True
 
-        self._mount_path_exists = mount_share_path_exists
+        self._mount_path_exists = mount_path_exists
         self._mount_share_path_exists = mount_share_path_exists
         return changed
 

@@ -342,8 +342,10 @@ class CacheFilePlayList(PlaylistBase):
 
     def load(self, func_progress=None):
         if not self.cacheFileExists():
+            logger.info('%s not found, scanning %s' % (self.cache_file_path, self.media_paths))
             self._scan(func_progress)
         else:
+            logger.info('loading from cache file %s' % self.cache_file_path)
             self._length = self._wrap_asset_iter.count()
             if func_progress is not None:
                 func_progress(self._length)

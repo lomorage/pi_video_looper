@@ -39,9 +39,9 @@ then
     rm -f /opt/lomorage/var/lomo-frame.log
 fi
 
-if [ -d "/opt/lomorage/lib/lib" ]
+if [ -d "/opt/lomorage/lib" ]
 then
-    rm -rf /opt/lomorage/lib/lib
+    rm -rf /opt/lomorage/lib
 fi
 EOF
 chmod +x $BUILD_NAME/DEBIAN/preinst
@@ -108,5 +108,5 @@ cp deps/arm/libSDL_image.a                $BUILD_NAME/opt/lomorage/lib/lomoframe
 cp deps/arm/libSDL_image.la               $BUILD_NAME/opt/lomorage/lib/lomoframe/
 cp deps/arm/libSDL_image-1.2.so.0.8.4     $BUILD_NAME/opt/lomorage/lib/lomoframe/
 
-chown root:root -R $BUILD_NAME
+chown pi:pi -R $BUILD_NAME
 dpkg -b $BUILD_NAME

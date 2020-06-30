@@ -28,10 +28,13 @@ class TestLomoHomeReader(unittest.TestCase):
         self.assertEqual(len(searchPaths), 1)
         self.assertEqual(searchPaths[0], 'test/media/home')
         self.assertFalse(self.reader.enable_watchdog())
+        self.assertTrue(self.reader.is_changed())
+        self.assertFalse(self.reader.is_changed())
 
     def test_search_paths_share(self):
         os.mkdir(self.share_dir)
         self.assertTrue(self.reader.is_changed())
+        self.assertFalse(self.reader.is_changed())
         searchPaths = self.reader.search_paths()
         self.assertEqual(len(searchPaths), 1)
         self.assertEqual(searchPaths[0], self.share_dir)
@@ -39,6 +42,7 @@ class TestLomoHomeReader(unittest.TestCase):
         os.rmdir(self.share_dir)
 
     def test_search_paths_changes(self):
+        self.assertTrue(self.reader.is_changed())
         self.assertFalse(self.reader.is_changed())
         searchPaths = self.reader.search_paths()
         self.assertEqual(searchPaths[0], 'test/media/home')
@@ -46,12 +50,14 @@ class TestLomoHomeReader(unittest.TestCase):
 
         os.mkdir(self.share_dir)
         self.assertTrue(self.reader.is_changed())
+        self.assertFalse(self.reader.is_changed())
         searchPaths = self.reader.search_paths()
         self.assertEqual(searchPaths[0], self.share_dir)
         self.assertTrue(self.reader.enable_watchdog())
 
         os.rmdir(self.share_dir)
         self.assertTrue(self.reader.is_changed())
+        self.assertFalse(self.reader.is_changed())
         searchPaths = self.reader.search_paths()
         self.assertEqual(searchPaths[0], 'test/media/home')
         self.assertFalse(self.reader.enable_watchdog())
