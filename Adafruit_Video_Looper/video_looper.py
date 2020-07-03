@@ -462,6 +462,9 @@ class VideoLooper:
                 self._force_reload = False
                 self._force_rescan_playlist = False
 
+            if self._playbackStopped:
+                self._idle_message()
+
             # Give the CPU some time to do other tasks. low values increase "responsiveness to changes" and reduce the pause between files
             # but increase CPU usage
             # since keyboard commands are handled in a seperate thread this sleeptime mostly influences the pause between files
