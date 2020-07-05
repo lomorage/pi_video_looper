@@ -9,10 +9,10 @@ class LomoReader:
         """Create an instance of a file reader that keep track of media files in
         Lomorage mount directory
         """
-        self._load_config(config)
         self._enable_watchdog = False
         self._mount_path_exists = False
         self._mount_share_path_exists = False
+        self._load_config(config)
 
     def _any_path_exists(self, paths):
         spaths = []
@@ -26,7 +26,8 @@ class LomoReader:
         self._mount_share_path = config.get('lomorage', 'mount_share_path').split(':')
         self._mount_path_exists = self._any_path_exists(self._mount_path)
         self._mount_share_path_exists = self._any_path_exists(self._mount_share_path)
-        logger.info("loading mount_path: %s, mount_share_path: %s" % (self._mount_path, self._mount_share_path))
+        logger.info("loading mount_path: %s [%s], mount_share_path: %s [%s]" %
+            (self._mount_path, self._mount_path_exists, self._mount_share_path, self._mount_share_path_exists))
 
     def search_paths(self):
         """Return a list of paths to search for files. Will return a list of all
