@@ -122,10 +122,9 @@ def random_sample(iter, k):
 class WatchDogWrapIter(events.FileSystemEventHandler):
 
     def __init__(self, it, paths):
-        self.it, self.backup_it = itertools.tee(it)
+        self.index = 0
+        self.items = list(it)
         self.added = []
-        self.removed = []
-        self.already_added = []
         self.observer = PollingObserver()
         for path in paths:
             if os.path.exists(path):
@@ -133,29 +132,13 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
         self.observer.start()
 
     def count(self):
-        # len will change iterator position, so copy another one
-        it, self.backup_it = itertools.tee(self.backup_it)
-        x = list(it)
-        total = len(x) + len(self.already_added)
-        for item in self.removed:
-            if item in x:
-                total -= 1
-        return total
+        return len(self.items) + len(self.added)
 
     def random(self):
-        if self.count() == 0:
+        if self.count() != 0:
+            return random.choice(self.items + self.added)
+        else:
             return None
-
-        self.it, self.backup_it = itertools.tee(self.backup_it)
-        self.it = itertools.chain(self.it, self.already_added)
-
-        while True:
-            sample = random_sample(self.it, 1)
-            if len(sample) > 0:
-                if sample[0] not in self.removed:
-                    return sample[0]
-            else:
-                return None
 
     def __del__(self):
         self.observer.stop()
@@ -165,39 +148,28 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
         return self
 
     def __next__(self):
-        if len(self.added) > 0:
-            return self.added.pop()
+        if self.count() != 0:
+            if len(self.added) > 0:
+                item = self.added.pop()
+                if self.items.count(item) == 0:
+                    self.items.insert(self.index, item)
+            else:
+                item = self.items[self.index]
+
+            if self.index == len(self.items) - 1:
+                self.index = 0
+            else:
+                self.index = self.index + 1
+
+            return item
         else:
-            newround = False # avoid infinite loop
-            while True:
-                logger.debug('WatchDogWrapIter, while loop, check item...')
-                try:
-                    item = next(self.it)
-                except StopIteration:
-                    item = None
-                if item is not None:
-                    if item not in self.removed:
-                        return item
-                else:
-                    if not newround:
-                        # Wrap around to the start after finishing.
-                        self.it, self.backup_it = itertools.tee(self.backup_it)
-                        self.it = itertools.chain(self.already_added, self.it)
-                        newround = True
-                        logger.debug('WatchDogWrapIter, new round')
-                    else:
-                        logger.debug('WatchDogWrapIter, cannot find item')
-                        return None
+            return None
 
     def on_created(self, event):
         logger.info('watchdog add %s' % event.src_path)
         asset = getMediaAsset(event.src_path)
-        while self.removed.count(asset):
-            self.removed.remove(asset)
         if not self.added.count(asset):
             self.added.append(asset)
-        if not self.already_added.count(asset):
-            self.already_added.append(asset)
         self._print_stats()
 
     def on_deleted(self, event):
@@ -205,14 +177,12 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
         asset = getMediaAsset(event.src_path)
         while self.added.count(asset):
             self.added.remove(asset)
-        while self.already_added.count(asset):
-            self.already_added.remove(asset)
-        if not self.removed.count(asset):
-            self.removed.append(asset)
+        while self.items.count(asset):
+            self.items.remove(asset)
         self._print_stats()
 
     def _print_stats(self):
-        output = 'added: %d, already_added: %d, removed: %d, total: %d' % (len(self.added), len(self.already_added), len(self.removed), self.count())
+        output = 'added: %d, items: %d, total: %d' % (len(self.added), len(self.items), self.count())
         logger.info(output)
 
 class WrapIter(object):
