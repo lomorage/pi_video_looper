@@ -126,6 +126,12 @@ class TestWatchDogPlaylist(unittest.TestCase):
         self.assertEqual(self.playlist.get_next(False).filename, asset_name_lst[1])
         self.assertEqual(self.playlist.get_next(False).filename, asset_name_lst[1])
 
+        e = events.FileDeletedEvent('test/media/home/IMG_6849.png')
+        self.playlist._wrap_asset_iter.on_deleted(e)
+        self.assertEqual(self.playlist.length(), 0)
+        self.assertIsNone(self.playlist.get_next(False))
+        self.assertIsNone(self.playlist.get_next(True))
+
     def test_empty_playlist(self):
         config = configparser.ConfigParser()
         config.read("test/video_looper.ini")

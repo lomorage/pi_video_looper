@@ -138,13 +138,19 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
         return len(list(it)) + len(self.already_added) - len(self.removed)
 
     def random(self):
+        if self.count() == 0:
+            return None
+
         self.it, self.backup_it = itertools.tee(self.backup_it)
         self.it = itertools.chain(self.it, self.already_added)
-        sample = random_sample(self.it, 1)
-        if len(sample) > 0:
-            return sample[0]
-        else:
-            return None
+
+        while True:
+            sample = random_sample(self.it, 1)
+            if len(sample) > 0:
+                if sample[0] not in self.removed:
+                    return sample[0]
+            else:
+                return None
 
     def __del__(self):
         self.observer.stop()
