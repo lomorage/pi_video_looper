@@ -118,6 +118,15 @@ class TestWatchDogPlaylist(unittest.TestCase):
         self.assertEqual(self.playlist.get_next(False).filename, asset_name_lst[2])
         self.assertEqual(self.playlist.get_next(False).filename, asset_name_lst[0])
 
+    def test_add_remove(self):
+        e = events.FileCreatedEvent('added.jpg')
+        self.playlist._wrap_asset_iter.on_created(e)
+        self.assertEqual(self.playlist.length(), 3)
+
+        e = events.FileDeletedEvent('added.jpg')
+        self.playlist._wrap_asset_iter.on_deleted(e)
+        self.assertEqual(self.playlist.length(), 2)
+
     def test_remove(self):
         asset_name_lst = ['test/media/home/20190601_12440.png', 'test/media/home/IMG_6849.png']
         e = events.FileDeletedEvent('test/media/home/20190601_12440.png')
@@ -125,6 +134,7 @@ class TestWatchDogPlaylist(unittest.TestCase):
         self.assertEqual(self.playlist.length(), 1)
         self.assertEqual(self.playlist.get_next(False).filename, asset_name_lst[1])
         self.assertEqual(self.playlist.get_next(False).filename, asset_name_lst[1])
+        self.assertEqual(self.playlist.get_next(True).filename, asset_name_lst[1])
 
         e = events.FileDeletedEvent('test/media/home/IMG_6849.png')
         self.playlist._wrap_asset_iter.on_deleted(e)

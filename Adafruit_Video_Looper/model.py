@@ -135,7 +135,12 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
     def count(self):
         # len will change iterator position, so copy another one
         it, self.backup_it = itertools.tee(self.backup_it)
-        return len(list(it)) + len(self.already_added) - len(self.removed)
+        x = list(it)
+        total = len(x) + len(self.already_added)
+        for item in self.removed:
+            if item in x:
+                total -= 1
+        return total
 
     def random(self):
         if self.count() == 0:
@@ -207,7 +212,7 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
         self._print_stats()
 
     def _print_stats(self):
-        output = 'added: %d, already_added: %d, removed: %d' % (len(self.added), len(self.already_added), len(self.removed))
+        output = 'added: %d, already_added: %d, removed: %d, total: %d' % (len(self.added), len(self.already_added), len(self.removed), self.count())
         logger.info(output)
 
 class WrapIter(object):
@@ -421,7 +426,8 @@ class ResourceLoader:
         if len(self._cache) == self._preload:
             asset = self._cache.pop(0)
             logger.info("pop asset %s: %s" % (asset, asset.preload_resource))
-            asset.preload_resource = None
+            if asset not in self._cache:
+                asset.preload_resource = None
             if asset in self._threads:
                 t = self._threads[asset]
                 if t.is_alive():
@@ -456,7 +462,7 @@ class ResourceLoader:
             return LOAD_FAIL
 
     def _load(self, asset):
-        if asset is None:
+        if asset is None or asset in self._threads:
             return
 
         t = threading.Thread(target=self._do_load, args=(asset, ))
@@ -467,15 +473,16 @@ class ResourceLoader:
 
     @timeit
     def _do_load(self, asset):
-        logger.info('_do_load %s' % asset.filename)
         try:
             if is_media_type(asset.filename, self._image_extensions):
                 asset.preload_resource = load_image_fit_screen(asset.filename)
                 asset.loading_status = LOAD_SUCC
+                logger.info('_do_load image %s [%s]' % (asset.filename, asset.preload_resource))
             elif is_media_type(asset.filename, self._video_extensions):
                 # todo request transcoded video according to screen size
                 asset.preload_resource = True
                 asset.loading_status = LOAD_SUCC
+                logger.info('_do_load video %s [%s]' % (asset.filename, asset.preload_resource))
             else:
                 logger.warn('not support, skip %s' % asset)
                 asset.loading_status = LOAD_FAIL

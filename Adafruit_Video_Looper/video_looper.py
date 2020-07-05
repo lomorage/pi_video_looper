@@ -102,6 +102,7 @@ class VideoLooper:
         self._big_font   = pygame.font.Font(None, 250)
         self._running    = True
         self._playbackStopped = False
+        self._empty = False
         #used for not waiting the first time
         self._firstStart = True
 
@@ -288,7 +289,6 @@ class VideoLooper:
         """Print idle message from file reader."""
         # Print message to console.
         message = self._reader.idle_message()
-        self._print(message)
         # Do nothing else if the OSD is turned off.
         if not self._osd:
             return
@@ -445,6 +445,15 @@ class VideoLooper:
                         self._print('Playing asset: {0} {1}'.format(asset, infotext))
                         # todo: maybe clear screen to black so that background (image/color) is not visible for videos with a resolution that is < screen resolution
                         self._player.play(asset, loop=-1 if playlist.length()==1 else None, vol = self._sound_vol)
+
+            #print('empty: %s, playlist len: %d' %(self._empty, playlist.length()))
+            if playlist.length() == 0:
+                self._player.stop(3)
+                self._idle_message()
+                self._empty = True
+            elif self._empty:
+                self._empty = False
+                self._force_reload = True
 
             # Check for changes in the file search path (like USB drives added)
             # and rebuild the playlist.

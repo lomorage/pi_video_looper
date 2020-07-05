@@ -45,6 +45,7 @@ class LomoReader:
             self._enable_watchdog = False
             for mpath in self._mount_path:
                 spaths.extend(glob.glob(mpath))
+        logger.info('search path: %s' % spaths)
         return spaths
 
     def is_changed(self):
@@ -68,6 +69,8 @@ class LomoReader:
 
         self._mount_path_exists = mount_path_exists
         self._mount_share_path_exists = mount_share_path_exists
+        if changed:
+            logger.info('lomo search path changed')
         return changed
 
     def idle_message(self):
