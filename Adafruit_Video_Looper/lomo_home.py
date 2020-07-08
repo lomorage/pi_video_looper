@@ -1,5 +1,9 @@
 import glob
 import os
+import json
+import urllib.request
+from urllib.error import HTTPError, URLError
+from socket import timeout
 from .baselog import getlogger
 logger = getlogger(__name__)
 
@@ -73,9 +77,35 @@ class LomoReader:
             logger.info('lomo search path changed')
         return changed
 
+    def get_lomoframed_status(self):
+        status = -1
+        try:
+            url = 'http://127.0.0.1:8003/system'
+            response = urllib.request.urlopen(url, timeout=3)
+            resp = json.loads(response.read())
+            status = resp['SystemStatus']
+            logger.info('get_lomoframed_status: %d' % status)
+        except (HTTPError, URLError) as error:
+            logger.error('get_lomoframed_status: %s error %s', error, url)
+        except timeout:
+            logger.error('get_lomoframed_status: %s socket timed out', url)
+        return status
+
     def idle_message(self):
         """Return a message to display when idle and no files are found."""
-        return 'No media files found, please connect hard drive first'
+        status = self.get_lomoframed_status()
+        if status == -1:
+            message = 'System Error, please contact support@lomorage.com'
+        elif status == 0 or status == 1:
+            message = 'Scan the QRCode with Lomorage APP to bind LomoFrame'
+        elif status == 2:
+            message = 'LomoFrame bind successfully, you can share Photo with Lomorage APP'
+        elif status == 3:
+            message = 'Connecting service...'
+        elif status == 4 or status == 5:
+            message = 'Please check your network connnectivity'
+
+        return message
 
     def enable_watchdog(self):
         return self._enable_watchdog
