@@ -84,11 +84,13 @@ class LomoReader:
             response = urllib.request.urlopen(url, timeout=3)
             resp = json.loads(response.read())
             status = resp['SystemStatus']
-            logger.info('get_lomoframed_status: %d' % status)
+            #logger.debug('get_lomoframed_status: %d' % status)
         except (HTTPError, URLError) as error:
-            logger.error('get_lomoframed_status: %s error %s', error, url)
+            logger.error('get_lomoframed_status: %s, %s' %(error, url))
         except timeout:
-            logger.error('get_lomoframed_status: %s socket timed out', url)
+            logger.error('get_lomoframed_status: %s socket timed out' % url)
+        except Exception as RESTex:
+            logger.error('get_lomoframed_status: %s, %s' %(RESTex, url))
         return status
 
     def idle_message(self):
@@ -104,6 +106,10 @@ class LomoReader:
             message = 'Connecting service...'
         elif status == 4 or status == 5:
             message = 'Please check your network connnectivity'
+        elif status == 6:
+            # 1. show login error info
+            # 2. let user scan qrcode (ip:port) to reset/unbind
+            message = 'Login Lomod failure, you can unregister by scanning the QRCode'
 
         return message
 
