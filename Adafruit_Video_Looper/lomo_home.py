@@ -17,6 +17,7 @@ class LomoReader:
         self._mount_path_exists = False
         self._mount_share_path_exists = False
         self._load_config(config)
+        self._lomoframed_status = None
 
     def _any_path_exists(self, paths):
         spaths = []
@@ -66,15 +67,15 @@ class LomoReader:
         # if share path changes, we need reload
         if mount_share_path_exists != self._mount_share_path_exists:
             changed = True
+            logger.info('lomo search path changed to %s' % self._mount_share_path)
 
         # if home path found, if we have share path, ignore, otherwise need reload
         if mount_path_exists != self._mount_path_exists and not mount_share_path_exists:
             changed = True
+            logger.info('lomo search path changed to %s' % self._mount_path)
 
         self._mount_path_exists = mount_path_exists
         self._mount_share_path_exists = mount_share_path_exists
-        if changed:
-            logger.info('lomo search path changed')
         return changed
 
     def get_lomoframed_status(self):
@@ -111,6 +112,12 @@ class LomoReader:
             # 2. let user scan qrcode (ip:port) to reset/unbind
             message = 'Login Lomod failure, you can unregister by scanning the QRCode'
 
+        if status == 0 and self._lomoframed_status is not None and self._lomoframed_status != 0:
+            # restart if changed to uninit
+            logger.info('need reload')
+            message = 'reloading...'
+
+        self._lomoframed_status = status
         return message
 
     def enable_watchdog(self):

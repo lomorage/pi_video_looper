@@ -13,6 +13,9 @@ import time
 import pygame
 import threading
 
+from watchdog.observers import Observer
+from watchdog import events
+
 from .model import CacheFilePlayList, WatchDogPlaylist, ResourceLoader, LOAD_PENDING, LOAD_SUCC, LOAD_FAIL
 from .alsa_config import parse_hw_device
 from .playlist_builders import build_playlist_m3u
@@ -43,7 +46,7 @@ logger = getlogger(__name__)
 # - Future file readers and video players can be provided and referenced in the
 #   config to extend the video player use to read from different file sources
 #   or use different video players.
-class VideoLooper:
+class VideoLooper(events.FileSystemEventHandler):
 
     def __init__(self, config_path):
         """Create an instance of the main video looper application class. Must
@@ -115,6 +118,25 @@ class VideoLooper:
         if self._keyboard_control:
             self._keyboard_thread = threading.Thread(target=self._handle_keyboard_shortcuts, daemon=True)
             self._keyboard_thread.start()
+
+        if self._config.has_option('video_looper', 'qrimage'):
+            imagepath = self._config.get('video_looper', 'qrimage')
+            imagedir = os.path.dirname(imagepath)
+            logger.info('watchdog set for %s' % imagedir)
+            if imagedir != "" and os.path.isdir(imagedir):
+                self.observer = Observer()
+                self.observer.schedule(self, imagedir, recursive=False)
+                self.observer.start()
+
+    def on_modified(self, event):
+        logger.info('watchdog modified %s' % event.src_path)
+        if event.src_path == self._config.get('video_looper', 'qrimage'):
+            self._qrimage = self._load_qrimage()
+
+    def on_created(self, event):
+        logger.info('watchdog created %s' % event.src_path)
+        if event.src_path == self._config.get('video_looper', 'qrimage'):
+            self._qrimage = self._load_qrimage()
 
     def _print(self, message):
         """Print message to standard output if console output is enabled."""
