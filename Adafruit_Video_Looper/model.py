@@ -136,7 +136,13 @@ class WatchDogWrapIter(events.FileSystemEventHandler):
 
     def random(self):
         if self.count() != 0:
-            return random.choice(self.items + self.added)
+            if len(self.added) > 0:
+                item = self.added.pop()
+                if self.items.count(item) == 0:
+                    self.items.insert(self.index, item)
+                return item
+            else:
+                return random.choice(self.items)
         else:
             return None
 
