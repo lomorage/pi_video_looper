@@ -58,9 +58,9 @@ ln -sf /opt/lomorage/lib/lomoframe/libSDL_image-1.2.so.0.8.4 /opt/lomorage/lib/l
 if [ -f "$INI_FILE" ]; then
     echo "difference of configuration:"
     diff "$NEW_INI_FILE" "$INI_FILE"
-else
-    mv "$NEW_INI_FILE" "$INI_FILE"
+    mv "$INI_FILE" "$INI_FILE.bak"
 fi
+mv "$NEW_INI_FILE" "$INI_FILE"
 
 #sudo -u pi bash -c "/sbin/framectrl.sh add"
 service supervisor start
