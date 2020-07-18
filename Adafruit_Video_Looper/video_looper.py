@@ -479,7 +479,7 @@ class VideoLooper(events.FileSystemEventHandler):
 
             # Check for changes in the file search path (like USB drives added)
             # and rebuild the playlist.
-            if (self._reader.is_changed() or self._force_reload) and not self._playbackStopped:
+            if (self._reader.is_changed() or self._force_reload):
                 self._print("need reload, stopping player")
                 self._player.stop(3)  # Up to 3 second delay waiting for old 
                                       # player to stop.
@@ -492,6 +492,7 @@ class VideoLooper(events.FileSystemEventHandler):
                 asset = playlist.get_next(self._is_random)
                 self._force_reload = False
                 self._force_rescan_playlist = False
+                self._playbackStopped = False
 
             if self._playbackStopped:
                 self._idle_message()
