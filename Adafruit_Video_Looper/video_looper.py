@@ -167,12 +167,24 @@ class VideoLooper(events.FileSystemEventHandler):
     def _load_qrimage(self):
         """Load the QRCode image and return an instance of it."""
         image = None
-        if self._config.has_option('video_looper', 'qrimage'):
-            imagepath = self._config.get('video_looper', 'qrimage')
-            if imagepath != "" and os.path.isfile(imagepath):
-                self._print('Using ' + str(imagepath) + ' as a QRCode image')
-                image = pygame.image.load(imagepath)
-                #image = pygame.transform.scale(image, self._size)
+
+        retry = 0 # on filewatch event, it may not ready yet
+        while retry < 3:
+            try:
+                if self._config.has_option('video_looper', 'qrimage'):
+                    imagepath = self._config.get('video_looper', 'qrimage')
+                    if imagepath != "" and os.path.isfile(imagepath):
+                        self._print('Using ' + str(imagepath) + ' as a QRCode image')
+                        image = pygame.image.load(imagepath)
+                        #image = pygame.transform.scale(image, self._size)
+                    else:
+                        logger.error("_load_qrimage, invalid path: %s" % imagepath)
+                break
+            except Exception as e:
+                logger.error("_load_qrimage err: %s" % e)
+                retry += 1
+                time.sleep(1)
+
         return image
 
     def _is_number(self, s):
