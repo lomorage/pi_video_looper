@@ -1,11 +1,14 @@
 import glob
 import os
 import json
+import time
 import urllib.request
 from urllib.error import HTTPError, URLError
 from socket import timeout
 from .baselog import getlogger
 logger = getlogger(__name__)
+
+UPDATE_INTERVAL = 3
 
 class LomoReader:
     
@@ -18,6 +21,7 @@ class LomoReader:
         self._mount_share_path_exists = False
         self._load_config(config)
         self._lomoframed_status = None
+        self._last_update = None
 
     def _any_path_exists(self, paths):
         spaths = []
@@ -79,6 +83,15 @@ class LomoReader:
         return changed
 
     def get_lomoframed_status(self):
+        now = time.time()
+        if self._last_update is None:
+            self._last_update = now
+
+        if now - self._last_update < UPDATE_INTERVAL:
+            return self._lomoframed_status
+
+        self._last_update = now
+
         status = -1
         try:
             url = 'http://127.0.0.1:8003/system'
