@@ -87,7 +87,7 @@ class LomoReader:
         if self._last_update is None:
             self._last_update = now
 
-        if now - self._last_update < UPDATE_INTERVAL:
+        if self._lomoframed_status is not None and (now - self._last_update < UPDATE_INTERVAL):
             return self._lomoframed_status
 
         self._last_update = now
@@ -110,6 +110,7 @@ class LomoReader:
     def idle_message(self):
         """Return a message to display when idle and no files are found."""
         status = self.get_lomoframed_status()
+        message = ''
         if status == -1:
             message = 'System Error, please contact support@lomorage.com'
         elif status == 0 or status == 1:
