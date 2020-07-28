@@ -507,6 +507,8 @@ class VideoLooper(events.FileSystemEventHandler):
                 self._playbackStopped = False
 
             if self._playbackStopped:
+                if asset is not None:
+                    asset.clear_playcount() # so resume next time
                 self._idle_message()
 
             # Give the CPU some time to do other tasks. low values increase "responsiveness to changes" and reduce the pause between files
