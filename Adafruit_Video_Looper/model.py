@@ -399,24 +399,27 @@ class ResourceLoader:
         self._threads= {}
 
     def get_next(self, is_random) -> MediaAsset:
-        if len(self._cache) == self._preload:
+        if len(self._cache) > 0 and self._cache[0].loading_status != LOAD_PENDING:
             asset = self._cache.pop(0)
-            logger.info("pop asset %s: %s" % (asset, asset.preload_resource))
-            if asset not in self._cache:
-                asset.preload_resource = None
+            logger.info("pop asset %s: %s" % (asset, asset.loading_status))
             if asset in self._threads:
                 t = self._threads[asset]
                 if t.is_alive():
                     t.join()
                 del self._threads[asset]
+            asset.preload_resource = None
+            asset.loading_status = LOAD_PENDING
 
         while len(self._cache) < self._preload:
             asset = self._playlist.get_next(is_random)
-            if asset is not None:
+            if asset is not None and asset not in self._cache:
                 self._load(asset)
                 self._cache.append(asset)
             else:
+                logger.warn('no new asset append: %s' % asset)
                 break
+
+        logger.info('current cache list: %s' % self._cache)
 
         if len(self._cache) > 0:
             return self._cache[0]
@@ -434,7 +437,7 @@ class ResourceLoader:
         if asset in self._threads:
             return asset.loading_status
         else:
-            logger.warn("asset not found in thread")
+            logger.warn("asset not found in thread: %s" % asset)
             return LOAD_FAIL
 
     def _load(self, asset):
