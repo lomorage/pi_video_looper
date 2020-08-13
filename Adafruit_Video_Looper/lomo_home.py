@@ -92,46 +92,55 @@ class LomoReader:
 
         self._last_update = now
 
-        status = -1
+        sysstatus = -1
+        mountstatus = -1
+        keepalivestatus = -1
         try:
             url = 'http://127.0.0.1:8003/system'
             response = urllib.request.urlopen(url, timeout=3)
             resp = json.loads(response.read())
-            status = resp['SystemStatus']
-            #logger.debug('get_lomoframed_status: %d' % status)
+            sysstatus = resp['SystemStatus']
+            mountstatus = resp['MountStatus']
+            keepalivestatus = resp['KeepaliveStatus']
+            #logger.debug('get_lomoframed_status: %d' % resp)
         except (HTTPError, URLError) as error:
             logger.error('get_lomoframed_status: %s, %s' %(error, url))
         except timeout:
             logger.error('get_lomoframed_status: %s socket timed out' % url)
         except Exception as RESTex:
             logger.error('get_lomoframed_status: %s, %s' %(RESTex, url))
-        return status
+        return (sysstatus, mountstatus, keepalivestatus)
 
     def idle_message(self):
         """Return a message to display when idle and no files are found."""
-        status = self.get_lomoframed_status()
+        sysstatus, mountstatus, keepalivestatus = self.get_lomoframed_status()
         message = ''
-        if status == -1:
+        if sysstatus == -1:
             message = 'System Error, please contact support@lomorage.com'
-        elif status == 0 or status == 1:
+        elif sysstatus == 0 or sysstatus == 1:
             message = 'Scan the QRCode with Lomorage APP to bind LomoFrame'
-        elif status == 2:
-            message = 'LomoFrame bind successfully, you can share Photo with Lomorage APP'
-        elif status == 3:
-            message = 'Connecting service...'
-        elif status == 4 or status == 5:
-            message = 'Please check your network connnectivity'
-        elif status == 6:
+        elif sysstatus == 2:
+            message = 'Can\'t reach server, please check network connectivity'
+        elif sysstatus == 3:
             # 1. show login error info
             # 2. let user scan qrcode (ip:port) to reset/unbind
             message = 'Login Lomod failure, you can unregister by scanning the QRCode'
+        elif sysstatus == 4:
+            if mountstatus == 0 and keepalivestatus == 0:
+                message = 'LomoFrame bind successfully, you can share Photo with Lomorage APP'
+            elif mountstatus == -1:
+                message = 'Mount failure, please check network connectivity'
+            elif keepalivestatus == -1:
+                message = 'Keepalive failure, please check network connectivity'
+            else:
+                message = 'Connecting server...'
 
-        if status == 0 and self._lomoframed_status is not None and self._lomoframed_status != 0:
+        if sysstatus == 0 and self._lomoframed_status is not None and self._lomoframed_status[0] != 0:
             # restart if changed to uninit
             logger.info('need reload')
             message = 'reloading...'
 
-        self._lomoframed_status = status
+        self._lomoframed_status = (sysstatus, mountstatus, keepalivestatus)
         return message
 
     def enable_watchdog(self):
