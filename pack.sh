@@ -9,6 +9,8 @@ BUILD_NAME=$PACKAGE_NAME"_"$VERSION
 INI_FILE=/opt/lomorage/var/video_looper.ini
 NEW_INI_FILE=/opt/lomorage/var/video_looper.ini.new
 
+rm -rf lomo-frame_*
+
 if [ -d $BUILD_NAME ]; then
     rm -rf $BUILD_NAME
 fi
@@ -37,6 +39,11 @@ fi
 if [ -f "/opt/lomorage/var/lomo-frame.log" ]
 then
     rm -f /opt/lomorage/var/lomo-frame.log
+fi
+
+if [ -f "/opt/lomorage/var/lomo-playlist.txt" ]
+then
+    rm -f /opt/lomorage/var/lomo-playlist.txt
 fi
 
 if [ -d "/opt/lomorage/lib" ]
