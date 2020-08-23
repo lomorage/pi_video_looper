@@ -515,7 +515,7 @@ class VideoLooper(events.FileSystemEventHandler):
             # but increase CPU usage
             # since keyboard commands are handled in a seperate thread this sleeptime mostly influences the pause between files
                         
-            time.sleep(0.002)
+            time.sleep(0.1)
 
     def quit(self):
         """Shut down the program"""
