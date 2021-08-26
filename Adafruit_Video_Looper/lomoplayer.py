@@ -16,7 +16,7 @@ logger = getlogger(__name__)
 class LomoPlayer:
 
     def __init__(self, config, screen):
-        """Create an instance of a video player that runs omxplayer in the
+        """Create an instance of a video player that runs vlc in the
         background for video and load images using sdl.
         """
         self._vprocess = None
@@ -35,7 +35,7 @@ class LomoPlayer:
         return self._temp_directory
 
     def _load_config(self, config):
-        self._video_extensions = config.get('omxplayer', 'extensions') \
+        self._video_extensions = config.get('vlc', 'extensions') \
                                  .translate(str.maketrans('', '', ' \t\r\n.')) \
                                  .split(',')
         self._image_extensions = config.get('sdl_image', 'extensions') \
@@ -48,16 +48,16 @@ class LomoPlayer:
                                              .translate(str.maketrans('','', ','))
                                              .split()))
         self._preload = (config.getint('video_looper', 'preload') > 0)
-        self._extra_args = config.get('omxplayer', 'extra_args').split()
-        self._sound = config.get('omxplayer', 'sound').lower()
-        assert self._sound in ('hdmi', 'local', 'both', 'alsa'), 'Unknown omxplayer sound configuration value: {0} Expected hdmi, local, both or alsa.'.format(self._sound)
-        self._alsa_hw_device = parse_hw_device(config.get('alsa', 'hw_device'))
-        if self._alsa_hw_device != None and self._sound == 'alsa':
-            self._sound = 'alsa:hw:{},{}'.format(self._alsa_hw_device[0], self._alsa_hw_device[1])
+        self._extra_args = config.get('vlc', 'extra_args').split()
+        self._sound = config.get('vlc', 'sound').lower()
+        #assert self._sound in ('hdmi', 'local', 'both', 'alsa'), 'Unknown sound configuration value: {0} Expected hdmi, local, both or alsa.'.format(self._sound)
+        #self._alsa_hw_device = parse_hw_device(config.get('alsa', 'hw_device'))
+        #if self._alsa_hw_device != None and self._sound == 'alsa':
+        #    self._sound = 'alsa:hw:{},{}'.format(self._alsa_hw_device[0], self._alsa_hw_device[1])
 
-        self._show_titles = config.getboolean('omxplayer', 'show_titles')
+        self._show_titles = config.getboolean('vlc', 'show_titles')
         if self._show_titles:
-            title_duration = config.getint('omxplayer', 'title_duration')
+            title_duration = config.getint('vlc', 'title_duration')
             if title_duration >= 0:
                 m, s = divmod(title_duration, 60)
                 h, m = divmod(m, 60)
@@ -110,11 +110,11 @@ class LomoPlayer:
         pygame.display.flip()
         self.stop(3)  # Up to 3 second delay to let the old player stop.
         # Assemble list of arguments.
-        args = ['omxplayer']
-        args.extend(['-o', self._sound])  # Add sound arguments.
-        args.extend(self._extra_args)     # Add extra arguments from config.
+        args = ['cvlc', '--play-and-exit']
+        #args.extend(['--alsa-audio-device', self._sound])  # Add sound arguments.
+        #args.extend(self._extra_args)     # Add extra arguments from config.
         if vol is not 0:
-            args.extend(['--vol', str(vol)])
+            args.extend(['--gain', str(vol)])
         if loop is None:
             loop = movie.repeats
         if loop <= -1:
@@ -124,9 +124,10 @@ class LomoPlayer:
             with open(srt_path, 'w') as f:
                 f.write(self._subtitle_header)
                 f.write(movie.title)
-            args.extend(['--subtitles', srt_path])
+            args.extend(['--sub-file', srt_path])
         args.append(movie.filename)       # Add movie file path.
-        # Run omxplayer process and direct standard output to /dev/null.
+        # Run vlc process and direct standard output to /dev/null.
+        logger.info('play video: %s' % args)
         self._vprocess = subprocess.Popen(args,
                                          stdout=open(os.devnull, 'wb'),
                                          close_fds=True)
@@ -155,9 +156,9 @@ class LomoPlayer:
             self._iprocess.kill()
 
         if self._vprocess is not None and self._vprocess.returncode is None:
-            # There are a couple processes used by omxplayer, so kill both
+            # There are a couple processes used by vlc, so kill both
             # with a pkill command.
-            subprocess.call(['pkill', '-9', 'omxplayer'])
+            subprocess.call(['pkill', '-9', 'vlc'])
 
         # If a blocking timeout was specified, wait up to that amount of time
         # for the process to stop.

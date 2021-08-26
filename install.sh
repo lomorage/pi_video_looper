@@ -8,7 +8,7 @@ pushd $CUR_DIR
 
 echo "Installing dependencies..."
 echo "=========================="
-sudo apt update && sudo apt -y install python3 python3-pip python3-pygame supervisor omxplayer ntfs-3g exfat-fuse
+sudo apt update && sudo apt -y install python3 python3-pip python3-pygame supervisor vlc ntfs-3g exfat-fuse
 
 sudo apt -y install git build-essential python3-dev autoconf automake libtool
 
@@ -63,4 +63,5 @@ sudo cp ./assets/video_looper.conf /etc/supervisor/conf.d/
 
 sudo service supervisor restart
 
+# to test run `LD_LIBRARY_PATH=/opt/lomorage/lib/lomoframe/ python3 -u -m Adafruit_Video_^Coper.video_looper`
 echo "Finished!"

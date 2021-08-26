@@ -226,7 +226,7 @@ class PlaylistBase(object):
         self._media_type = config.get('playlist', 'media_type').upper()
         assert self._media_type in MediaType.__members__.keys(), 'Unknown media type value: {0} Expected video, image or all.'.format(self._media_type)
         self._media_type = MediaType.__members__[self._media_type]
-        self._video_extensions = config.get('omxplayer', 'extensions') \
+        self._video_extensions = config.get('vlc', 'extensions') \
                                  .translate(str.maketrans('', '', ' \t\r\n.')) \
                                  .split(',')
         self._image_extensions = config.get('sdl_image', 'extensions') \
@@ -387,7 +387,7 @@ class WatchDogPlaylist(PlaylistBase):
 class ResourceLoader:
 
     def __init__(self, playlist, config):
-        self._video_extensions = config.get('omxplayer', 'extensions') \
+        self._video_extensions = config.get('vlc', 'extensions') \
                                  .translate(str.maketrans('', '', ' \t\r\n.')) \
                                  .split(',')
         self._image_extensions = config.get('sdl_image', 'extensions') \

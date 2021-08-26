@@ -24,7 +24,7 @@ Version: $VERSION
 Section: python
 Priority: optional
 Architecture: all
-Depends: python3, python3-pyudev, python3-pygame, python3-watchdog, supervisor, lomo-omxplayer, ntfs-3g, exfat-fuse, ffmpeg, lomo-framed
+Depends: python3, python3-pyudev, python3-pygame, python3-watchdog, supervisor, vlc, ntfs-3g, exfat-fuse, ffmpeg, lomo-framed
 Maintainer: Jeromy Fu<fuji246@gmail.com>
 Description: Lomorage Digital Frame
 EOF
@@ -70,6 +70,8 @@ fi
 mv "$NEW_INI_FILE" "$INI_FILE"
 
 #sudo -u pi bash -c "/sbin/framectrl.sh add"
+
+sed -i 's/geteuid/getppid/' /usr/bin/vlc
 service supervisor start
 EOF
 chmod +x $BUILD_NAME/DEBIAN/postinst
@@ -83,7 +85,6 @@ cp Adafruit_Video_Looper/__init__.py           $BUILD_NAME/usr/lib/python3/dist-
 cp Adafruit_Video_Looper/lomo_home.py          $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
 cp Adafruit_Video_Looper/lomoplayer.py         $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
 cp Adafruit_Video_Looper/model.py              $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
-cp Adafruit_Video_Looper/omxplayer.py          $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
 cp Adafruit_Video_Looper/playlist_builders.py  $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
 cp Adafruit_Video_Looper/usb_drive_copymode.py $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
 cp Adafruit_Video_Looper/usb_drive_mounter.py  $BUILD_NAME/usr/lib/python3/dist-packages/Adafruit_Video_Looper/
