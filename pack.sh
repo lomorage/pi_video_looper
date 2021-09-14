@@ -1,11 +1,13 @@
 #!/bin/bash
 set -e
 
-nowDate=$(date +"%Y%m%d")
+nowDate=$(date +"%Y-%m-%d")
+nowTime=$(date +"%H-%M-%S")
 commitHash=$(git rev-parse --short HEAD)
-VERSION="$nowDate+$commitHash"
+VERSION="$nowDate.$nowTime.0.$commitHash"
+
 PACKAGE_NAME="lomo-frame"
-BUILD_NAME=$PACKAGE_NAME"_"$VERSION
+BUILD_NAME=$PACKAGE_NAME
 INI_FILE=/opt/lomorage/var/video_looper.ini
 NEW_INI_FILE=/opt/lomorage/var/video_looper.ini.new
 
@@ -35,21 +37,6 @@ if [ -f "/lib/systemd/system/supervisor.service" ]
 then
     service supervisor stop
 fi
-
-if [ -f "/opt/lomorage/var/lomo-frame.log" ]
-then
-    rm -f /opt/lomorage/var/lomo-frame.log
-fi
-
-if [ -f "/opt/lomorage/var/lomo-playlist.txt" ]
-then
-    rm -f /opt/lomorage/var/lomo-playlist.txt
-fi
-
-if [ -d "/opt/lomorage/lib" ]
-then
-    rm -rf /opt/lomorage/lib
-fi
 EOF
 chmod +x $BUILD_NAME/DEBIAN/preinst
 
@@ -72,7 +59,6 @@ mv "$NEW_INI_FILE" "$INI_FILE"
 #sudo -u pi bash -c "/sbin/framectrl.sh add"
 
 sed -i 's/geteuid/getppid/' /usr/bin/vlc
-service supervisor start
 EOF
 chmod +x $BUILD_NAME/DEBIAN/postinst
 
@@ -95,7 +81,7 @@ cp Adafruit_Video_Looper/video_looper.py       $BUILD_NAME/usr/lib/python3/dist-
 mkdir -p $BUILD_NAME/sbin
 cp framectrl.sh $BUILD_NAME/sbin/
 
-mkdir -p $BUILD_NAME/opt/lomorage/var
+mkdir -p $BUILD_NAME/opt/lomorage/var/log
 cp assets/video_looper.ini  $BUILD_NAME/$NEW_INI_FILE
 
 mkdir -p $BUILD_NAME/etc/supervisor/conf.d
@@ -116,5 +102,5 @@ cp deps/arm/libSDL_image.a                $BUILD_NAME/opt/lomorage/lib/lomoframe
 cp deps/arm/libSDL_image.la               $BUILD_NAME/opt/lomorage/lib/lomoframe/
 cp deps/arm/libSDL_image-1.2.so.0.8.4     $BUILD_NAME/opt/lomorage/lib/lomoframe/
 
-chown pi:pi -R $BUILD_NAME
+#chown pi:pi -R $BUILD_NAME
 dpkg -b $BUILD_NAME
